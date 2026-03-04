@@ -8,7 +8,7 @@ const _geistMono = Geist_Mono({ subsets: ["latin"] });
 
 export const metadata: Metadata = {
   title: 'Image Ratio Tool',
-  description: 'Analyze image aspect ratios and crop to standard formats. Paste, drop, or upload an image to get started.',
+  description: 'Analyze image aspect ratios, crop to standard formats, or add borders to match a target ratio. Paste, drop, or upload an image to get started.',
   generator: 'v0.app',
   icons: {
     icon: [
