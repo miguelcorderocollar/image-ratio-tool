@@ -2,12 +2,14 @@
 
 import { CropMode } from "@/components/crop-mode"
 import { BorderMode } from "@/components/border-mode"
+import { JsonLd } from "@/components/json-ld"
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs"
-import { Crop, Frame } from "lucide-react"
+import { Crop, Frame, Github, Globe } from "lucide-react"
 
 export default function Page() {
   return (
     <main className="min-h-screen bg-background">
+      <JsonLd />
       <div className="mx-auto max-w-3xl px-4 py-8 sm:px-6 sm:py-12">
         {/* Header */}
         <header className="mb-8">
@@ -63,6 +65,36 @@ export default function Page() {
             <BorderMode />
           </TabsContent>
         </Tabs>
+
+        {/* Footer */}
+        <footer className="mt-12 border-t border-border pt-6 pb-8">
+          <div className="flex flex-col items-center gap-3 text-sm text-muted-foreground">
+            <p className="flex items-center gap-1.5">
+              Made with <span aria-label="robot">🤖</span> by Miguel Cordero Collar
+            </p>
+            <div className="flex items-center gap-4">
+              <a
+                href="https://miguelcorderocollar.com/"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex items-center gap-1.5 transition-colors hover:text-foreground"
+              >
+                <Globe className="size-4" />
+                <span>Website</span>
+              </a>
+              <span className="text-border" aria-hidden="true">{'|'}</span>
+              <a
+                href="https://github.com/miguelcorderocollar"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex items-center gap-1.5 transition-colors hover:text-foreground"
+              >
+                <Github className="size-4" />
+                <span>GitHub</span>
+              </a>
+            </div>
+          </div>
+        </footer>
       </div>
     </main>
   )
