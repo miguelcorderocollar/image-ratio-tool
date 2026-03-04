@@ -1,12 +1,53 @@
 "use client"
 
+import { useState, useCallback, useEffect } from "react"
 import { CropMode } from "@/components/crop-mode"
 import { BorderMode } from "@/components/border-mode"
+import { DropZone } from "@/components/drop-zone"
 import { JsonLd } from "@/components/json-ld"
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs"
-import { Crop, Frame, Github, Globe } from "lucide-react"
+import { Button } from "@/components/ui/button"
+import { Crop, Frame, Github, Globe, RotateCcw } from "lucide-react"
 
 export default function Page() {
+  const [image, setImage] = useState<HTMLImageElement | null>(null)
+
+  const handleImageLoad = useCallback((img: HTMLImageElement) => {
+    setImage(img)
+  }, [])
+
+  const handleReset = useCallback(() => {
+    setImage(null)
+  }, [])
+
+  // Global paste listener
+  useEffect(() => {
+    const handlePaste = (e: ClipboardEvent) => {
+      const items = e.clipboardData?.items
+      if (!items) return
+      for (const item of items) {
+        if (item.type.startsWith("image/")) {
+          const file = item.getAsFile()
+          if (file) {
+            const reader = new FileReader()
+            reader.onload = (ev) => {
+              if (ev.target?.result) {
+                const img = new Image()
+                img.crossOrigin = "anonymous"
+                img.onload = () => handleImageLoad(img)
+                img.src = ev.target.result as string
+              }
+            }
+            reader.readAsDataURL(file)
+            return
+          }
+        }
+      }
+    }
+    window.addEventListener("paste", handlePaste)
+    return () => window.removeEventListener("paste", handlePaste)
+  }, [handleImageLoad])
+
   return (
     <main className="min-h-screen bg-background">
       <JsonLd />
@@ -44,27 +85,42 @@ export default function Page() {
           </div>
         </header>
 
-        {/* Mode Tabs */}
-        <Tabs defaultValue="crop" className="flex flex-col gap-6">
-          <TabsList className="w-fit">
-            <TabsTrigger value="crop" className="gap-1.5 px-4">
-              <Crop className="size-4" />
-              Crop Mode
-            </TabsTrigger>
-            <TabsTrigger value="border" className="gap-1.5 px-4">
-              <Frame className="size-4" />
-              Border Mode
-            </TabsTrigger>
-          </TabsList>
+        {/* DropZone when no image */}
+        {!image && <DropZone onImageLoad={handleImageLoad} />}
 
-          <TabsContent value="crop">
-            <CropMode />
-          </TabsContent>
+        {/* Mode Tabs when image is loaded */}
+        {image && (
+          <>
+            {/* Reset button */}
+            <div className="flex justify-end mb-4">
+              <Button variant="ghost" size="sm" onClick={handleReset} className="gap-1.5 text-muted-foreground">
+                <RotateCcw className="size-4" />
+                New Image
+              </Button>
+            </div>
 
-          <TabsContent value="border">
-            <BorderMode />
-          </TabsContent>
-        </Tabs>
+            <Tabs defaultValue="crop" className="flex flex-col gap-6">
+              <TabsList className="w-fit">
+                <TabsTrigger value="crop" className="gap-1.5 px-4">
+                  <Crop className="size-4" />
+                  Crop Mode
+                </TabsTrigger>
+                <TabsTrigger value="border" className="gap-1.5 px-4">
+                  <Frame className="size-4" />
+                  Border Mode
+                </TabsTrigger>
+              </TabsList>
+
+              <TabsContent value="crop">
+                <CropMode image={image} />
+              </TabsContent>
+
+              <TabsContent value="border">
+                <BorderMode image={image} />
+              </TabsContent>
+            </Tabs>
+          </>
+        )}
 
         {/* Footer */}
         <footer className="mt-12 border-t border-border pt-6 pb-8">

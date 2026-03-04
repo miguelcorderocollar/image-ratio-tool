@@ -1,98 +1,44 @@
 "use client"
 
-import { useState, useCallback, useEffect } from "react"
-import { DropZone } from "@/components/drop-zone"
+import { useState, useCallback } from "react"
 import { ImagePreview } from "@/components/image-preview"
 import { RatioInfo } from "@/components/ratio-info"
 import { RatioCard } from "@/components/ratio-card"
 import { getExactRatio, findClosestRatios } from "@/lib/ratio-utils"
-import { Button } from "@/components/ui/button"
-import { RotateCcw, Scissors, CheckCircle2 } from "lucide-react"
+import { Scissors, CheckCircle2 } from "lucide-react"
 
-export function CropMode() {
-  const [image, setImage] = useState<HTMLImageElement | null>(null)
+interface CropModeProps {
+  image: HTMLImageElement
+}
+
+export function CropMode({ image }: CropModeProps) {
   const [hoveredRatio, setHoveredRatio] = useState<{ w: number; h: number } | null>(null)
   const [tolerance, setTolerance] = useState(0.05)
   const [copiedMessage, setCopiedMessage] = useState(false)
-
-  const handleImageLoad = useCallback((img: HTMLImageElement) => {
-    setImage(img)
-    setHoveredRatio(null)
-    setCopiedMessage(false)
-  }, [])
-
-  const handleReset = useCallback(() => {
-    setImage(null)
-    setHoveredRatio(null)
-    setCopiedMessage(false)
-    setTolerance(0.05)
-  }, [])
 
   const handleCropped = useCallback(() => {
     setCopiedMessage(true)
     setTimeout(() => setCopiedMessage(false), 2500)
   }, [])
 
-  // Global paste listener
-  useEffect(() => {
-    const handlePaste = (e: ClipboardEvent) => {
-      const items = e.clipboardData?.items
-      if (!items) return
-      for (const item of items) {
-        if (item.type.startsWith("image/")) {
-          const file = item.getAsFile()
-          if (file) {
-            const reader = new FileReader()
-            reader.onload = (ev) => {
-              if (ev.target?.result) {
-                const img = new Image()
-                img.crossOrigin = "anonymous"
-                img.onload = () => handleImageLoad(img)
-                img.src = ev.target.result as string
-              }
-            }
-            reader.readAsDataURL(file)
-            return
-          }
-        }
-      }
-    }
-    window.addEventListener("paste", handlePaste)
-    return () => window.removeEventListener("paste", handlePaste)
-  }, [handleImageLoad])
-
-  const exact = image ? getExactRatio(image.width, image.height) : null
-  const matches = image ? findClosestRatios(image.width, image.height, tolerance) : []
-
-  if (!image) {
-    return <DropZone onImageLoad={handleImageLoad} />
-  }
+  const exact = getExactRatio(image.width, image.height)
+  const matches = findClosestRatios(image.width, image.height, tolerance)
 
   return (
     <div className="flex flex-col gap-6">
-      {/* Reset button */}
-      <div className="flex justify-end">
-        <Button variant="ghost" size="sm" onClick={handleReset} className="gap-1.5 text-muted-foreground">
-          <RotateCcw className="size-4" />
-          Reset
-        </Button>
-      </div>
-
       {/* Image Preview Canvas */}
       <ImagePreview image={image} hoveredRatio={hoveredRatio} />
 
       {/* Exact Ratio + Tolerance */}
-      {exact && (
-        <RatioInfo
-          display={exact.display}
-          decimal={exact.decimal}
-          width={exact.width}
-          height={exact.height}
-          tolerance={tolerance}
-          onToleranceChange={setTolerance}
-          matchCount={matches.length}
-        />
-      )}
+      <RatioInfo
+        display={exact.display}
+        decimal={exact.decimal}
+        width={exact.width}
+        height={exact.height}
+        tolerance={tolerance}
+        onToleranceChange={setTolerance}
+        matchCount={matches.length}
+      />
 
       {/* Suggestions Grid */}
       {matches.length > 0 ? (
