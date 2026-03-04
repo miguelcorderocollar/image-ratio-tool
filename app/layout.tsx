@@ -11,21 +11,10 @@ export const metadata: Metadata = {
   description: 'Analyze image aspect ratios, crop to standard formats, or add borders to match a target ratio. Paste, drop, or upload an image to get started.',
   generator: 'v0.app',
   icons: {
-    icon: [
-      {
-        url: '/icon-light-32x32.png',
-        media: '(prefers-color-scheme: light)',
-      },
-      {
-        url: '/icon-dark-32x32.png',
-        media: '(prefers-color-scheme: dark)',
-      },
-      {
-        url: '/icon.svg',
-        type: 'image/svg+xml',
-      },
-    ],
-    apple: '/apple-icon.png',
+    icon: '/icon.svg',
+  },
+  other: {
+    'theme-color': '#0f172a',
   },
 }
 

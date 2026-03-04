@@ -86,7 +86,7 @@ export function ImagePreview({ image, hoveredRatio }: ImagePreviewProps) {
       )
 
       // Draw crop border
-      ctx.strokeStyle = "oklch(0.72 0.19 165)"
+      ctx.strokeStyle = "oklch(0.746 0.16 232.7)"
       ctx.lineWidth = 2
       ctx.setLineDash([6, 4])
       ctx.strokeRect(crop.x, crop.y, crop.width, crop.height)
@@ -94,7 +94,7 @@ export function ImagePreview({ image, hoveredRatio }: ImagePreviewProps) {
 
       // Draw corner marks
       const cornerLen = 12
-      ctx.strokeStyle = "oklch(0.72 0.19 165)"
+      ctx.strokeStyle = "oklch(0.746 0.16 232.7)"
       ctx.lineWidth = 3
       const corners = [
         { x: crop.x, y: crop.y },
