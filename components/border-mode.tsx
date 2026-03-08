@@ -20,7 +20,6 @@ import {
   STANDARD_RATIOS,
 } from "@/lib/ratio-utils"
 import {
-  RotateCcw,
   Copy,
   Download,
   CheckCircle2,
@@ -48,9 +47,6 @@ interface BorderModeProps {
 }
 
 export function BorderMode({ image }: BorderModeProps) {
-  if (!image) {
-    return null
-  }
   const [selectedRatio, setSelectedRatio] = useState("1:1")
   const [customW, setCustomW] = useState("16")
   const [customH, setCustomH] = useState("9")
@@ -61,6 +57,8 @@ export function BorderMode({ image }: BorderModeProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const containerRef = useRef<HTMLDivElement>(null)
   const [canvasDisplaySize, setCanvasDisplaySize] = useState({ width: 0, height: 0 })
+
+  if (!image) return null
 
   // Parse the active target ratio
   const targetW = isCustom ? (parseInt(customW) || 1) : parseInt(selectedRatio.split(":")[0])
@@ -367,11 +365,6 @@ export function BorderMode({ image }: BorderModeProps) {
         <Button variant="outline" onClick={handleDownload} className="gap-2">
           <Download className="size-4" />
           Download PNG
-        </Button>
-        <div className="flex-1" />
-        <Button variant="ghost" size="sm" onClick={handleReset} className="gap-1.5 text-muted-foreground">
-          <RotateCcw className="size-4" />
-          Reset
         </Button>
       </div>
 

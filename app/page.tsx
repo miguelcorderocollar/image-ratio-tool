@@ -85,48 +85,45 @@ export default function Page() {
           </div>
         </header>
 
-        {/* DropZone and Tabs */}
-        <div className="flex flex-col gap-6">
-          {/* Show DropZone when no image */}
+        {/* Mode Tabs - always visible at the top */}
+        <Tabs defaultValue="crop" className="flex flex-col gap-6">
+          {/* Tab bar + optional reset */}
+          <div className="flex items-center justify-between">
+            <TabsList className="w-fit">
+              <TabsTrigger value="crop" className="gap-1.5 px-4">
+                <Crop className="size-4" />
+                Crop Mode
+              </TabsTrigger>
+              <TabsTrigger value="border" className="gap-1.5 px-4">
+                <Frame className="size-4" />
+                Border Mode
+              </TabsTrigger>
+            </TabsList>
+
+            {image && (
+              <Button variant="ghost" size="sm" onClick={handleReset} className="gap-1.5 text-muted-foreground">
+                <RotateCcw className="size-4" />
+                New Image
+              </Button>
+            )}
+          </div>
+
+          {/* DropZone shown below the tabs when no image is loaded */}
           {!image && <DropZone onImageLoad={handleImageLoad} />}
 
-          {/* Mode Tabs - always visible */}
-          <Tabs defaultValue="crop" className="flex flex-col gap-6">
-            <div className="flex items-center justify-between">
-              <TabsList className="w-fit">
-                <TabsTrigger value="crop" className="gap-1.5 px-4">
-                  <Crop className="size-4" />
-                  Crop Mode
-                </TabsTrigger>
-                <TabsTrigger value="border" className="gap-1.5 px-4">
-                  <Frame className="size-4" />
-                  Border Mode
-                </TabsTrigger>
-              </TabsList>
+          {/* Content panels rendered only when image exists */}
+          {image && (
+            <>
+              <TabsContent value="crop">
+                <CropMode image={image} />
+              </TabsContent>
 
-              {/* Reset button - only show when image is loaded */}
-              {image && (
-                <Button variant="ghost" size="sm" onClick={handleReset} className="gap-1.5 text-muted-foreground">
-                  <RotateCcw className="size-4" />
-                  New Image
-                </Button>
-              )}
-            </div>
-
-            {/* Content panels - only render when image exists */}
-            {image && (
-              <>
-                <TabsContent value="crop">
-                  <CropMode image={image} />
-                </TabsContent>
-
-                <TabsContent value="border">
-                  <BorderMode image={image} />
-                </TabsContent>
-              </>
-            )}
-          </Tabs>
-        </div>
+              <TabsContent value="border">
+                <BorderMode image={image} />
+              </TabsContent>
+            </>
+          )}
+        </Tabs>
 
         {/* Footer */}
         <footer className="mt-12 border-t border-border pt-6 pb-8">
