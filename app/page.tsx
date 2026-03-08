@@ -85,21 +85,14 @@ export default function Page() {
           </div>
         </header>
 
-        {/* DropZone when no image */}
-        {!image && <DropZone onImageLoad={handleImageLoad} />}
+        {/* DropZone and Tabs */}
+        <div className="flex flex-col gap-6">
+          {/* Show DropZone when no image */}
+          {!image && <DropZone onImageLoad={handleImageLoad} />}
 
-        {/* Mode Tabs when image is loaded */}
-        {image && (
-          <>
-            {/* Reset button */}
-            <div className="flex justify-end mb-4">
-              <Button variant="ghost" size="sm" onClick={handleReset} className="gap-1.5 text-muted-foreground">
-                <RotateCcw className="size-4" />
-                New Image
-              </Button>
-            </div>
-
-            <Tabs defaultValue="crop" className="flex flex-col gap-6">
+          {/* Mode Tabs - always visible */}
+          <Tabs defaultValue="crop" className="flex flex-col gap-6">
+            <div className="flex items-center justify-between">
               <TabsList className="w-fit">
                 <TabsTrigger value="crop" className="gap-1.5 px-4">
                   <Crop className="size-4" />
@@ -111,16 +104,29 @@ export default function Page() {
                 </TabsTrigger>
               </TabsList>
 
-              <TabsContent value="crop">
-                <CropMode image={image} />
-              </TabsContent>
+              {/* Reset button - only show when image is loaded */}
+              {image && (
+                <Button variant="ghost" size="sm" onClick={handleReset} className="gap-1.5 text-muted-foreground">
+                  <RotateCcw className="size-4" />
+                  New Image
+                </Button>
+              )}
+            </div>
 
-              <TabsContent value="border">
-                <BorderMode image={image} />
-              </TabsContent>
-            </Tabs>
-          </>
-        )}
+            {/* Content panels - only render when image exists */}
+            {image && (
+              <>
+                <TabsContent value="crop">
+                  <CropMode image={image} />
+                </TabsContent>
+
+                <TabsContent value="border">
+                  <BorderMode image={image} />
+                </TabsContent>
+              </>
+            )}
+          </Tabs>
+        </div>
 
         {/* Footer */}
         <footer className="mt-12 border-t border-border pt-6 pb-8">

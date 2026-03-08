@@ -1,7 +1,6 @@
 "use client"
 
 import { useState, useCallback, useEffect, useRef } from "react"
-import { DropZone } from "@/components/drop-zone"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Label } from "@/components/ui/label"
@@ -44,8 +43,14 @@ const BORDER_RATIOS = [
   { label: "21:9", value: "21:9" },
 ]
 
-export function BorderMode() {
-  const [image, setImage] = useState<HTMLImageElement | null>(null)
+interface BorderModeProps {
+  image: HTMLImageElement | null
+}
+
+export function BorderMode({ image }: BorderModeProps) {
+  if (!image) {
+    return null
+  }
   const [selectedRatio, setSelectedRatio] = useState("1:1")
   const [customW, setCustomW] = useState("16")
   const [customH, setCustomH] = useState("9")
@@ -56,21 +61,6 @@ export function BorderMode() {
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const containerRef = useRef<HTMLDivElement>(null)
   const [canvasDisplaySize, setCanvasDisplaySize] = useState({ width: 0, height: 0 })
-
-  const handleImageLoad = useCallback((img: HTMLImageElement) => {
-    setImage(img)
-    setCopiedMessage(false)
-  }, [])
-
-  const handleReset = useCallback(() => {
-    setImage(null)
-    setSelectedRatio("1:1")
-    setCustomW("16")
-    setCustomH("9")
-    setBorderStyle("black")
-    setCopiedMessage(false)
-    setIsCustom(false)
-  }, [])
 
   // Parse the active target ratio
   const targetW = isCustom ? (parseInt(customW) || 1) : parseInt(selectedRatio.split(":")[0])
@@ -229,37 +219,7 @@ export function BorderMode() {
     link.click()
   }, [generateOutputCanvas, targetW, targetH])
 
-  // Global paste listener
-  useEffect(() => {
-    const handlePaste = (e: ClipboardEvent) => {
-      const items = e.clipboardData?.items
-      if (!items) return
-      for (const item of items) {
-        if (item.type.startsWith("image/")) {
-          const file = item.getAsFile()
-          if (file) {
-            const reader = new FileReader()
-            reader.onload = (ev) => {
-              if (ev.target?.result) {
-                const img = new Image()
-                img.crossOrigin = "anonymous"
-                img.onload = () => handleImageLoad(img)
-                img.src = ev.target.result as string
-              }
-            }
-            reader.readAsDataURL(file)
-            return
-          }
-        }
-      }
-    }
-    window.addEventListener("paste", handlePaste)
-    return () => window.removeEventListener("paste", handlePaste)
-  }, [handleImageLoad])
 
-  if (!image) {
-    return <DropZone onImageLoad={handleImageLoad} />
-  }
 
   const border = getBorderDimensions(image.width, image.height, targetW, targetH)
 
