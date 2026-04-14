@@ -25,9 +25,17 @@ import {
   CheckCircle2,
   Frame,
   AlertCircle,
+  Pipette,
 } from "lucide-react"
 
-export type BorderStyle = "black" | "average" | "blur" | "gradient"
+export type BorderStyle = "black" | "white" | "color" | "average" | "blur" | "gradient"
+
+// Extend Window to include the EyeDropper API
+declare global {
+  interface Window {
+    EyeDropper?: new () => { open: () => Promise<{ sRGBHex: string }> }
+  }
+}
 
 const BORDER_RATIOS = [
   { label: "1:1", value: "1:1" },
@@ -53,10 +61,19 @@ export function BorderMode({ image }: BorderModeProps) {
   const [borderStyle, setBorderStyle] = useState<BorderStyle>("black")
   const [copiedMessage, setCopiedMessage] = useState(false)
   const [isCustom, setIsCustom] = useState(false)
+  const [customColor, setCustomColor] = useState("#ffffff")
+  const [debouncedColor, setDebouncedColor] = useState("#ffffff")
+  const [eyedropperSupported] = useState(() => typeof window !== "undefined" && !!window.EyeDropper)
 
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const containerRef = useRef<HTMLDivElement>(null)
   const [canvasDisplaySize, setCanvasDisplaySize] = useState({ width: 0, height: 0 })
+
+  // Debounce custom color to avoid re-rendering canvas on every keystroke
+  useEffect(() => {
+    const timer = setTimeout(() => setDebouncedColor(customColor), 120)
+    return () => clearTimeout(timer)
+  }, [customColor])
 
   if (!image) return null
 
@@ -111,6 +128,12 @@ export function BorderMode({ image }: BorderModeProps) {
     if (borderStyle === "black") {
       ctx.fillStyle = "#000000"
       ctx.fillRect(0, 0, border.canvasWidth, border.canvasHeight)
+    } else if (borderStyle === "white") {
+      ctx.fillStyle = "#ffffff"
+      ctx.fillRect(0, 0, border.canvasWidth, border.canvasHeight)
+    } else if (borderStyle === "color") {
+      ctx.fillStyle = debouncedColor
+      ctx.fillRect(0, 0, border.canvasWidth, border.canvasHeight)
     } else if (borderStyle === "average") {
       const avg = getAverageEdgeColor(image)
       ctx.fillStyle = `rgb(${avg.r}, ${avg.g}, ${avg.b})`
@@ -136,7 +159,7 @@ export function BorderMode({ image }: BorderModeProps) {
 
     // Draw the original image centered
     ctx.drawImage(image, border.imgX, border.imgY, image.width, image.height)
-  }, [image, targetW, targetH, borderStyle])
+  }, [image, targetW, targetH, borderStyle, debouncedColor])
 
   // Resize handler
   useEffect(() => {
@@ -161,6 +184,12 @@ export function BorderMode({ image }: BorderModeProps) {
     if (borderStyle === "black") {
       ctx.fillStyle = "#000000"
       ctx.fillRect(0, 0, border.canvasWidth, border.canvasHeight)
+    } else if (borderStyle === "white") {
+      ctx.fillStyle = "#ffffff"
+      ctx.fillRect(0, 0, border.canvasWidth, border.canvasHeight)
+    } else if (borderStyle === "color") {
+      ctx.fillStyle = debouncedColor
+      ctx.fillRect(0, 0, border.canvasWidth, border.canvasHeight)
     } else if (borderStyle === "average") {
       const avg = getAverageEdgeColor(image)
       ctx.fillStyle = `rgb(${avg.r}, ${avg.g}, ${avg.b})`
@@ -184,7 +213,7 @@ export function BorderMode({ image }: BorderModeProps) {
 
     ctx.drawImage(image, border.imgX, border.imgY, image.width, image.height)
     return canvas
-  }, [image, targetW, targetH, borderStyle])
+  }, [image, targetW, targetH, borderStyle, debouncedColor])
 
   const handleCopyToClipboard = useCallback(async () => {
     const canvas = generateOutputCanvas()
@@ -206,6 +235,18 @@ export function BorderMode({ image }: BorderModeProps) {
       handleDownload()
     }
   }, [generateOutputCanvas])
+
+  const handleEyedropper = useCallback(async () => {
+    if (!window.EyeDropper) return
+    try {
+      const dropper = new window.EyeDropper()
+      const result = await dropper.open()
+      setCustomColor(result.sRGBHex)
+      setBorderStyle("color")
+    } catch {
+      // User cancelled the eyedropper
+    }
+  }, [])
 
   const handleDownload = useCallback(() => {
     const canvas = generateOutputCanvas()
@@ -311,13 +352,15 @@ export function BorderMode({ image }: BorderModeProps) {
           <RadioGroup
             value={borderStyle}
             onValueChange={(val) => setBorderStyle(val as BorderStyle)}
-            className="flex flex-wrap gap-4"
+            className="flex flex-wrap gap-x-5 gap-y-3"
           >
             {([
               { value: "black", label: "Black" },
+              { value: "white", label: "White" },
               { value: "average", label: "Avg Color" },
               { value: "blur", label: "Blur" },
               { value: "gradient", label: "Gradient" },
+              { value: "color", label: "Custom Color" },
             ] as const).map((opt) => (
               <div key={opt.value} className="flex items-center gap-2">
                 <RadioGroupItem value={opt.value} id={`border-${opt.value}`} />
@@ -327,6 +370,54 @@ export function BorderMode({ image }: BorderModeProps) {
               </div>
             ))}
           </RadioGroup>
+
+          {/* Color picker row — shown when "color" is active */}
+          {borderStyle === "color" && (
+            <div className="mt-1 flex items-center gap-2">
+              {/* Native color input styled as a swatch */}
+              <div className="relative size-8 shrink-0 overflow-hidden rounded-md border border-border">
+                <input
+                  type="color"
+                  value={customColor}
+                  onChange={(e) => setCustomColor(e.target.value)}
+                  className="absolute inset-0 size-full cursor-pointer opacity-0"
+                  aria-label="Pick border color"
+                />
+                <div
+                  className="size-full rounded-md"
+                  style={{ backgroundColor: customColor }}
+                  aria-hidden="true"
+                />
+              </div>
+
+              {/* Hex text input */}
+              <Input
+                type="text"
+                value={customColor}
+                onChange={(e) => {
+                  const val = e.target.value
+                  if (/^#[0-9a-fA-F]{0,6}$/.test(val)) setCustomColor(val)
+                }}
+                maxLength={7}
+                className="w-28 font-mono text-sm uppercase"
+                aria-label="Border color hex value"
+              />
+
+              {/* Eyedropper button — only shown when API is supported */}
+              {eyedropperSupported && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={handleEyedropper}
+                  className="gap-1.5"
+                  title="Pick color from screen"
+                >
+                  <Pipette className="size-3.5" />
+                  Pick from screen
+                </Button>
+              )}
+            </div>
+          )}
         </div>
 
         {/* Output info */}
