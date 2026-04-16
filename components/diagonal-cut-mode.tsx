@@ -15,7 +15,7 @@ type Side = "left" | "right" | "top" | "bottom"
 
 interface SideConfig {
   enabled: boolean
-  angle: number // degrees 1–89
+  angle: number // degrees -89 to 89, negative flips direction
 }
 
 type SidesConfig = Record<Side, SideConfig>
@@ -49,7 +49,10 @@ function defaultSides(): SidesConfig {
 function presetLabel(sides: SidesConfig): string {
   const active = SIDES.filter((s) => sides[s].enabled)
   if (active.length === 0) return "No cuts"
-  return active.map((s) => `${SIDE_LABELS[s]} ${sides[s].angle}°`).join(", ")
+  return active.map((s) => {
+    const a = sides[s].angle
+    return `${SIDE_LABELS[s]} ${a > 0 ? "+" : ""}${a}°`
+  }).join(", ")
 }
 
 function loadRecent(): RecentPreset[] {
@@ -122,31 +125,56 @@ function clipPolygonByLine(polygon: Point[], p1: Point, p2: Point): Point[] {
 }
 
 function buildClipPolygon(w: number, h: number, sides: SidesConfig): Point[] {
-  const toRad = (deg: number) => (deg * Math.PI) / 180
-  const dL = sides.left.enabled   ? Math.min(w * 0.98, Math.round(w * Math.tan(toRad(sides.left.angle))))   : 0
-  const dR = sides.right.enabled  ? Math.min(w * 0.98, Math.round(w * Math.tan(toRad(sides.right.angle))))  : 0
-  const dT = sides.top.enabled    ? Math.min(h * 0.98, Math.round(h * Math.tan(toRad(sides.top.angle))))    : 0
-  const dB = sides.bottom.enabled ? Math.min(h * 0.98, Math.round(h * Math.tan(toRad(sides.bottom.angle)))) : 0
+  const toRad = (deg: number) => (Math.abs(deg) * Math.PI) / 180
+  const depthW = (a: number) => Math.min(w * 0.98, Math.round(w * Math.tan(toRad(a))))
+  const depthH = (a: number) => Math.min(h * 0.98, Math.round(h * Math.tan(toRad(a))))
 
   // Start with full rectangle (clockwise)
   let poly: Point[] = [[0, 0], [w, 0], [w, h], [0, h]]
 
-  // LEFT: diagonal from (dL,0) to (0,h) — keep the right/main side.
-  // Reverse p1↔p2 so "left of line" = interior (main image area).
-  if (sides.left.enabled && dL > 0)
-    poly = clipPolygonByLine(poly, [0, h], [dL, 0])
+  // LEFT
+  // positive: remove top-left wedge  — line (dL,0)→(0,h),  keep right side = walk (0,h)→(dL,0)
+  // negative: remove bottom-left wedge — line (0,0)→(dL,h), keep right side = walk (dL,h)→(0,0)
+  if (sides.left.enabled && sides.left.angle !== 0) {
+    const d = depthW(sides.left.angle)
+    if (sides.left.angle > 0)
+      poly = clipPolygonByLine(poly, [0, h],  [d, 0])
+    else
+      poly = clipPolygonByLine(poly, [d, h], [0, 0])
+  }
 
-  // RIGHT: diagonal from (w,0) to (w-dR,h) — keep the left/main side.
-  if (sides.right.enabled && dR > 0)
-    poly = clipPolygonByLine(poly, [w, 0], [w - dR, h])
+  // RIGHT
+  // positive: remove top-right wedge  — line (w,0)→(w-dR,h), keep left = walk (w,0)→(w-dR,h)
+  // negative: remove bottom-right wedge — line (w-dR,0)→(w,h), keep left = walk (w-dR,0)→(w,h)
+  if (sides.right.enabled && sides.right.angle !== 0) {
+    const d = depthW(sides.right.angle)
+    if (sides.right.angle > 0)
+      poly = clipPolygonByLine(poly, [w, 0],   [w - d, h])
+    else
+      poly = clipPolygonByLine(poly, [w - d, 0], [w, h])
+  }
 
-  // TOP: diagonal from (0,dT) to (w,0) — keep the bottom/main side.
-  if (sides.top.enabled && dT > 0)
-    poly = clipPolygonByLine(poly, [0, dT], [w, 0])
+  // TOP
+  // positive: remove top-left strip  — line (0,dT)→(w,0), keep below = walk (0,dT)→(w,0)
+  // negative: remove top-right strip — line (0,0)→(w,dT), keep below = walk (w,dT)→(0,0) reversed
+  if (sides.top.enabled && sides.top.angle !== 0) {
+    const d = depthH(sides.top.angle)
+    if (sides.top.angle > 0)
+      poly = clipPolygonByLine(poly, [0, d], [w, 0])
+    else
+      poly = clipPolygonByLine(poly, [w, d], [0, 0])
+  }
 
-  // BOTTOM: diagonal from (0,h) to (w,h-dB) — keep the top/main side.
-  if (sides.bottom.enabled && dB > 0)
-    poly = clipPolygonByLine(poly, [w, h - dB], [0, h])
+  // BOTTOM
+  // positive: remove bottom-left strip  — line (0,h)→(w,h-dB), keep above = walk (w,h-dB)→(0,h)
+  // negative: remove bottom-right strip — line (0,h-dB)→(w,h), keep above = walk (0,h-dB)→(w,h) reversed
+  if (sides.bottom.enabled && sides.bottom.angle !== 0) {
+    const d = depthH(sides.bottom.angle)
+    if (sides.bottom.angle > 0)
+      poly = clipPolygonByLine(poly, [w, h - d], [0, h])
+    else
+      poly = clipPolygonByLine(poly, [0, h - d], [w, h])
+  }
 
   return poly
 }
@@ -322,29 +350,30 @@ export function DiagonalCutMode({ image }: DiagonalCutModeProps) {
                   <div className="flex items-center gap-1.5">
                     <Input
                       type="number"
-                      min={1}
+                      min={-89}
                       max={89}
                       value={cfg.angle}
                       onChange={(e) => {
-                        const v = Math.max(1, Math.min(89, Number(e.target.value)))
-                        updateSide(side, { angle: v })
+                        const v = Math.max(-89, Math.min(89, Number(e.target.value)))
+                        updateSide(side, { angle: v === 0 ? 1 : v })
                       }}
-                      className="w-16 text-center font-mono text-sm"
+                      className="w-20 text-center font-mono text-sm"
                       aria-label={`${SIDE_LABELS[side]} cut angle in degrees`}
                     />
                     <span className="text-xs text-muted-foreground">°</span>
                   </div>
                 </div>
                 <Slider
-                  min={1}
+                  min={-89}
                   max={89}
                   step={1}
                   value={[cfg.angle]}
-                  onValueChange={([v]) => updateSide(side, { angle: v })}
+                  onValueChange={([v]) => updateSide(side, { angle: v === 0 ? 1 : v })}
                   aria-label={`${SIDE_LABELS[side]} angle slider`}
                 />
                 <div className="flex justify-between text-[10px] text-muted-foreground font-mono">
-                  <span>1° shallow</span>
+                  <span>-89° flipped</span>
+                  <span className="mx-auto">0</span>
                   <span>89° steep</span>
                 </div>
               </div>
