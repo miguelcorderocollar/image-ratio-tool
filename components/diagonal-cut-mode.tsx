@@ -138,11 +138,11 @@ function buildClipPolygon(w: number, h: number, sides: SidesConfig): Point[] {
 
   // RIGHT: diagonal from (w,0) to (w-dR,h) — keep the left/main side.
   if (sides.right.enabled && dR > 0)
-    poly = clipPolygonByLine(poly, [w - dR, h], [w, 0])
+    poly = clipPolygonByLine(poly, [w, 0], [w - dR, h])
 
   // TOP: diagonal from (0,dT) to (w,0) — keep the bottom/main side.
   if (sides.top.enabled && dT > 0)
-    poly = clipPolygonByLine(poly, [w, 0], [0, dT])
+    poly = clipPolygonByLine(poly, [0, dT], [w, 0])
 
   // BOTTOM: diagonal from (0,h) to (w,h-dB) — keep the top/main side.
   if (sides.bottom.enabled && dB > 0)
