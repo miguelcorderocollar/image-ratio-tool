@@ -131,21 +131,22 @@ function buildClipPolygon(w: number, h: number, sides: SidesConfig): Point[] {
   // Start with full rectangle (clockwise)
   let poly: Point[] = [[0, 0], [w, 0], [w, h], [0, h]]
 
-  // LEFT: line (dL,0)→(0,h) — keep the right side (inside = left of this directed line)
+  // LEFT: diagonal from (dL,0) to (0,h) — keep the right/main side.
+  // Reverse p1↔p2 so "left of line" = interior (main image area).
   if (sides.left.enabled && dL > 0)
-    poly = clipPolygonByLine(poly, [dL, 0], [0, h])
+    poly = clipPolygonByLine(poly, [0, h], [dL, 0])
 
-  // RIGHT: line (w,0)→(w-dR,h) — keep the left side
+  // RIGHT: diagonal from (w,0) to (w-dR,h) — keep the left/main side.
   if (sides.right.enabled && dR > 0)
-    poly = clipPolygonByLine(poly, [w, 0], [w - dR, h])
+    poly = clipPolygonByLine(poly, [w - dR, h], [w, 0])
 
-  // TOP: line (0,dT)→(w,0) — keep the bottom side
+  // TOP: diagonal from (0,dT) to (w,0) — keep the bottom/main side.
   if (sides.top.enabled && dT > 0)
-    poly = clipPolygonByLine(poly, [0, dT], [w, 0])
+    poly = clipPolygonByLine(poly, [w, 0], [0, dT])
 
-  // BOTTOM: line (0,h)→(w,h-dB) — keep the top side
+  // BOTTOM: diagonal from (0,h) to (w,h-dB) — keep the top/main side.
   if (sides.bottom.enabled && dB > 0)
-    poly = clipPolygonByLine(poly, [0, h], [w, h - dB])
+    poly = clipPolygonByLine(poly, [w, h - dB], [0, h])
 
   return poly
 }
