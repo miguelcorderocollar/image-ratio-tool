@@ -15,7 +15,7 @@ type Side = "left" | "right" | "top" | "bottom"
 
 interface SideConfig {
   enabled: boolean
-  angle: number // degrees, 1–89
+  angle: number // degrees 1–89
 }
 
 type SidesConfig = Record<Side, SideConfig>
@@ -39,9 +39,9 @@ const MAX_RECENT = 5
 
 function defaultSides(): SidesConfig {
   return {
-    left: { enabled: true, angle: DEFAULT_ANGLE },
-    right: { enabled: false, angle: DEFAULT_ANGLE },
-    top: { enabled: false, angle: DEFAULT_ANGLE },
+    left:   { enabled: true,  angle: DEFAULT_ANGLE },
+    right:  { enabled: false, angle: DEFAULT_ANGLE },
+    top:    { enabled: false, angle: DEFAULT_ANGLE },
     bottom: { enabled: false, angle: DEFAULT_ANGLE },
   }
 }
@@ -55,8 +55,7 @@ function presetLabel(sides: SidesConfig): string {
 function loadRecent(): RecentPreset[] {
   try {
     const raw = localStorage.getItem(LS_KEY)
-    if (!raw) return []
-    return JSON.parse(raw) as RecentPreset[]
+    return raw ? (JSON.parse(raw) as RecentPreset[]) : []
   } catch {
     return []
   }
@@ -64,131 +63,96 @@ function loadRecent(): RecentPreset[] {
 
 function saveRecent(sides: SidesConfig) {
   const label = presetLabel(sides)
-  const next: RecentPreset = { sides, label }
   const existing = loadRecent().filter((r) => r.label !== label)
-  const updated = [next, ...existing].slice(0, MAX_RECENT)
+  const updated = [{ sides, label }, ...existing].slice(0, MAX_RECENT)
   localStorage.setItem(LS_KEY, JSON.stringify(updated))
 }
 
-// ─── Canvas rendering ─────────────────────────────────────────────────────────
+// ─── Geometry ─────────────────────────────────────────────────────────────────
+//
+// Each side cut is defined as a straight diagonal line that slices across the
+// full width (left/right) or full height (top/bottom) of the image.
+//
+// The angle controls how far inward (in pixels) the cut reaches at its deepest point:
+//   LEFT  : line from (dL, 0) [top edge]    to (0,    h) [bottom-left]  → removes top-left wedge
+//   RIGHT : line from (w,   0) [top-right]  to (w-dR, h) [bottom edge]  → removes top-right wedge
+//   TOP   : line from (0,  dT) [left edge]  to (w,    0) [top-right]    → removes top strip
+//   BOTTOM: line from (0,   h) [bottom-left] to (w, h-dB) [right edge]  → removes bottom strip
+//
+// depth for LEFT/RIGHT = w * tan(angle), capped at 98% of w
+// depth for TOP/BOTTOM = h * tan(angle), capped at 98% of h
+//
+// Polygon clipping uses the Sutherland–Hodgman algorithm so multiple cuts
+// combine correctly without gaps or artifacts.
 
-/**
- * Builds a clipping path on `ctx` that keeps the "visible" polygon
- * after applying diagonal cuts on the requested sides.
- *
- * For each enabled side we cut a triangle off the corner using the angle
- * measured from that edge inward.
- *
- * The clip region is defined as a convex polygon built by traversing
- * the four edges and inserting the diagonal cut points.
- */
-function buildClipPath(
-  ctx: CanvasRenderingContext2D,
-  w: number,
-  h: number,
-  sides: SidesConfig
-) {
-  // Helper: how far along the perpendicular axis does the cut go?
-  // angle is in degrees from the edge face.
-  const depth = (edge: "horiz" | "vert", angle: number) => {
-    const rad = (angle * Math.PI) / 180
-    return edge === "horiz"
-      ? Math.round(h * Math.tan(rad) * 0.5)  // left/right: depth into width
-      : Math.round(w * Math.tan(rad) * 0.5)  // top/bottom: depth into height
+type Point = [number, number]
+
+function clipPolygonByLine(polygon: Point[], p1: Point, p2: Point): Point[] {
+  // Clips polygon to the half-plane that is on the LEFT side of the directed
+  // line p1 → p2 (i.e. positive cross-product side).
+  const result: Point[] = []
+  const n = polygon.length
+  if (n === 0) return result
+
+  const inside = (p: Point): boolean => {
+    const dx = p2[0] - p1[0]
+    const dy = p2[1] - p1[1]
+    return dx * (p[1] - p1[1]) - dy * (p[0] - p1[0]) >= 0
   }
 
-  const L = sides.left
-  const R = sides.right
-  const T = sides.top
-  const B = sides.bottom
-
-  // Inward depths
-  const dL = L.enabled ? depth("horiz", L.angle) : 0
-  const dR = R.enabled ? depth("horiz", R.angle) : 0
-  const dT = T.enabled ? depth("vert", T.angle) : 0
-  const dB = B.enabled ? depth("vert", B.angle) : 0
-
-  // We build the polygon going clockwise: top-left → top-right → bottom-right → bottom-left
-  ctx.beginPath()
-
-  // Top-left corner
-  if (L.enabled && T.enabled) {
-    ctx.moveTo(dL, 0)
-    ctx.lineTo(w, 0)
-  } else if (L.enabled) {
-    ctx.moveTo(dL, 0)
-    ctx.lineTo(w, 0)
-  } else if (T.enabled) {
-    ctx.moveTo(0, dT)
-    ctx.lineTo(w, 0)
-  } else {
-    ctx.moveTo(0, 0)
-    ctx.lineTo(w, 0)
+  const intersect = (a: Point, b: Point): Point => {
+    const dx1 = b[0] - a[0], dy1 = b[1] - a[1]
+    const dx2 = p2[0] - p1[0], dy2 = p2[1] - p1[1]
+    const denom = dx1 * dy2 - dy1 * dx2
+    if (Math.abs(denom) < 1e-10) return a
+    const t = ((p1[0] - a[0]) * dy2 - (p1[1] - a[1]) * dx2) / denom
+    return [a[0] + t * dx1, a[1] + t * dy1]
   }
 
-  // Top-right corner
-  if (R.enabled && T.enabled) {
-    ctx.lineTo(w - dR, 0)
-    ctx.lineTo(w, dT)
-  } else if (R.enabled) {
-    ctx.lineTo(w - dR, 0)
-    ctx.lineTo(w, dR)
-  } else if (T.enabled) {
-    ctx.lineTo(w - dT, 0)
-    ctx.lineTo(w, dT)
-  } else {
-    // already at (w,0), just go down
-    ctx.lineTo(w, h)
+  for (let i = 0; i < n; i++) {
+    const cur = polygon[i]
+    const next = polygon[(i + 1) % n]
+    const curIn = inside(cur)
+    const nextIn = inside(next)
+    if (curIn) result.push(cur)
+    if (curIn !== nextIn) result.push(intersect(cur, next))
   }
 
-  // Bottom-right corner
-  if (R.enabled && B.enabled) {
-    ctx.lineTo(w, h - dB)
-    ctx.lineTo(w - dR, h)
-  } else if (R.enabled) {
-    ctx.lineTo(w, h - dR)
-    ctx.lineTo(w - dR, h)
-  } else if (B.enabled) {
-    ctx.lineTo(w, h - dB)
-    ctx.lineTo(w - dB, h)
-  } else {
-    ctx.lineTo(w - 0, h)
-  }
-
-  // Bottom-left corner
-  if (L.enabled && B.enabled) {
-    ctx.lineTo(dL, h)
-    ctx.lineTo(0, h - dB)
-  } else if (L.enabled) {
-    ctx.lineTo(dL, h)
-    ctx.lineTo(0, h - dL)
-  } else if (B.enabled) {
-    ctx.lineTo(dB, h)
-    ctx.lineTo(0, h - dB)
-  } else {
-    ctx.lineTo(0, h)
-  }
-
-  // Back to start
-  if (L.enabled) {
-    ctx.lineTo(0, dL)
-    ctx.lineTo(dL, 0)
-  } else if (T.enabled) {
-    ctx.lineTo(0, dT)
-    ctx.lineTo(dT > 0 ? 0 : 0, 0)
-  } else {
-    ctx.lineTo(0, 0)
-  }
-
-  ctx.closePath()
+  return result
 }
 
-function drawCheckerboard(
-  ctx: CanvasRenderingContext2D,
-  w: number,
-  h: number,
-  size = 12
-) {
+function buildClipPolygon(w: number, h: number, sides: SidesConfig): Point[] {
+  const toRad = (deg: number) => (deg * Math.PI) / 180
+  const dL = sides.left.enabled   ? Math.min(w * 0.98, Math.round(w * Math.tan(toRad(sides.left.angle))))   : 0
+  const dR = sides.right.enabled  ? Math.min(w * 0.98, Math.round(w * Math.tan(toRad(sides.right.angle))))  : 0
+  const dT = sides.top.enabled    ? Math.min(h * 0.98, Math.round(h * Math.tan(toRad(sides.top.angle))))    : 0
+  const dB = sides.bottom.enabled ? Math.min(h * 0.98, Math.round(h * Math.tan(toRad(sides.bottom.angle)))) : 0
+
+  // Start with full rectangle (clockwise)
+  let poly: Point[] = [[0, 0], [w, 0], [w, h], [0, h]]
+
+  // LEFT: line (dL,0)→(0,h) — keep the right side (inside = left of this directed line)
+  if (sides.left.enabled && dL > 0)
+    poly = clipPolygonByLine(poly, [dL, 0], [0, h])
+
+  // RIGHT: line (w,0)→(w-dR,h) — keep the left side
+  if (sides.right.enabled && dR > 0)
+    poly = clipPolygonByLine(poly, [w, 0], [w - dR, h])
+
+  // TOP: line (0,dT)→(w,0) — keep the bottom side
+  if (sides.top.enabled && dT > 0)
+    poly = clipPolygonByLine(poly, [0, dT], [w, 0])
+
+  // BOTTOM: line (0,h)→(w,h-dB) — keep the top side
+  if (sides.bottom.enabled && dB > 0)
+    poly = clipPolygonByLine(poly, [0, h], [w, h - dB])
+
+  return poly
+}
+
+// ─── Canvas helpers ───────────────────────────────────────────────────────────
+
+function drawCheckerboard(ctx: CanvasRenderingContext2D, w: number, h: number, size = 12) {
   for (let y = 0; y < h; y += size) {
     for (let x = 0; x < w; x += size) {
       const even = (Math.floor(x / size) + Math.floor(y / size)) % 2 === 0
@@ -213,13 +177,16 @@ function renderCut(
   if (!ctx) return
 
   ctx.clearRect(0, 0, w, h)
+  if (!transparent) drawCheckerboard(ctx, w, h)
 
-  if (!transparent) {
-    drawCheckerboard(ctx, w, h)
-  }
+  const polygon = buildClipPolygon(w, h, sides)
+  if (polygon.length < 3) return
 
   ctx.save()
-  buildClipPath(ctx, w, h, sides)
+  ctx.beginPath()
+  ctx.moveTo(polygon[0][0], polygon[0][1])
+  for (let i = 1; i < polygon.length; i++) ctx.lineTo(polygon[i][0], polygon[i][1])
+  ctx.closePath()
   ctx.clip()
   ctx.drawImage(image, 0, 0, w, h)
   ctx.restore()
@@ -236,15 +203,13 @@ export function DiagonalCutMode({ image }: DiagonalCutModeProps) {
   const [debouncedSides, setDebouncedSides] = useState<SidesConfig>(defaultSides)
   const [recentPresets, setRecentPresets] = useState<RecentPreset[]>([])
   const [copiedMessage, setCopiedMessage] = useState(false)
+  const [canvasDisplaySize, setCanvasDisplaySize] = useState({ width: 0, height: 0 })
 
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const containerRef = useRef<HTMLDivElement>(null)
-  const [canvasDisplaySize, setCanvasDisplaySize] = useState({ width: 0, height: 0 })
 
-  // Load recent from localStorage on mount
-  useEffect(() => {
-    setRecentPresets(loadRecent())
-  }, [])
+  // Load recent presets from localStorage on mount
+  useEffect(() => { setRecentPresets(loadRecent()) }, [])
 
   // Debounce sides → debouncedSides (80ms)
   useEffect(() => {
@@ -255,40 +220,24 @@ export function DiagonalCutMode({ image }: DiagonalCutModeProps) {
   // Render preview whenever debounced config or image changes
   useEffect(() => {
     if (!image || !canvasRef.current || !containerRef.current) return
-
     renderCut(canvasRef.current, image, debouncedSides, false)
 
-    // Compute display size
     const maxW = containerRef.current.clientWidth
     const maxH = Math.min(window.innerHeight * 0.55, 520)
     const ratio = image.width / image.height
     let dw: number, dh: number
-    if (ratio > maxW / maxH) {
-      dw = maxW; dh = maxW / ratio
-    } else {
-      dh = maxH; dw = maxH * ratio
-    }
+    if (ratio > maxW / maxH) { dw = maxW; dh = maxW / ratio }
+    else                     { dh = maxH; dw = maxH * ratio }
     setCanvasDisplaySize({ width: Math.round(dw), height: Math.round(dh) })
   }, [image, debouncedSides])
 
-  // ── Helpers ────────────────────────────────────────────────────────────────
-
   const updateSide = useCallback((side: Side, patch: Partial<SideConfig>) => {
-    setSides((prev) => ({
-      ...prev,
-      [side]: { ...prev[side], ...patch },
-    }))
+    setSides((prev) => ({ ...prev, [side]: { ...prev[side], ...patch } }))
   }, [])
 
-  const activeSides = SIDES.filter((s) => sides[s].enabled)
+  const handleReset = useCallback(() => setSides(defaultSides()), [])
 
-  const handleReset = useCallback(() => {
-    setSides(defaultSides())
-  }, [])
-
-  const applyPreset = useCallback((preset: RecentPreset) => {
-    setSides(preset.sides)
-  }, [])
+  const applyPreset = useCallback((preset: RecentPreset) => setSides(preset.sides), [])
 
   const generateOutputCanvas = useCallback((): HTMLCanvasElement | null => {
     if (!image) return null
@@ -302,7 +251,6 @@ export function DiagonalCutMode({ image }: DiagonalCutModeProps) {
     if (!canvas) return
     saveRecent(debouncedSides)
     setRecentPresets(loadRecent())
-
     const link = document.createElement("a")
     link.download = "diagonal-cut.png"
     link.href = canvas.toDataURL("image/png")
@@ -314,7 +262,6 @@ export function DiagonalCutMode({ image }: DiagonalCutModeProps) {
     if (!canvas) return
     saveRecent(debouncedSides)
     setRecentPresets(loadRecent())
-
     try {
       const blob = await new Promise<Blob | null>((res) => canvas.toBlob(res, "image/png"))
       if (blob) {
@@ -329,10 +276,12 @@ export function DiagonalCutMode({ image }: DiagonalCutModeProps) {
 
   if (!image) return null
 
+  const activeSides = SIDES.filter((s) => sides[s].enabled)
+
   return (
     <div className="flex flex-col gap-6">
 
-      {/* ── Side toggles ────────────────────────────────────────────────────── */}
+      {/* Side toggles */}
       <div className="flex flex-col gap-2">
         <Label className="text-sm text-muted-foreground">Cut Sides</Label>
         <ToggleGroup
@@ -343,9 +292,7 @@ export function DiagonalCutMode({ image }: DiagonalCutModeProps) {
             const next = vals as Side[]
             setSides((prev) => {
               const updated = { ...prev }
-              SIDES.forEach((s) => {
-                updated[s] = { ...prev[s], enabled: next.includes(s) }
-              })
+              SIDES.forEach((s) => { updated[s] = { ...prev[s], enabled: next.includes(s) } })
               return updated
             })
           }}
@@ -357,13 +304,11 @@ export function DiagonalCutMode({ image }: DiagonalCutModeProps) {
           ))}
         </ToggleGroup>
         {activeSides.length === 0 && (
-          <p className="text-xs text-muted-foreground">
-            Select at least one side to apply a cut.
-          </p>
+          <p className="text-xs text-muted-foreground">Select at least one side to apply a cut.</p>
         )}
       </div>
 
-      {/* ── Per-side angle controls ──────────────────────────────────────────── */}
+      {/* Per-side angle controls */}
       {activeSides.length > 0 && (
         <div className="flex flex-col gap-4">
           <Label className="text-sm text-muted-foreground">Angles</Label>
@@ -372,9 +317,7 @@ export function DiagonalCutMode({ image }: DiagonalCutModeProps) {
             return (
               <div key={side} className="flex flex-col gap-2">
                 <div className="flex items-center justify-between">
-                  <span className="text-sm font-medium text-foreground">
-                    {SIDE_LABELS[side]}
-                  </span>
+                  <span className="text-sm font-medium text-foreground">{SIDE_LABELS[side]}</span>
                   <div className="flex items-center gap-1.5">
                     <Input
                       type="number"
@@ -409,7 +352,7 @@ export function DiagonalCutMode({ image }: DiagonalCutModeProps) {
         </div>
       )}
 
-      {/* ── Recent presets ───────────────────────────────────────────────────── */}
+      {/* Recent presets */}
       {recentPresets.length > 0 && (
         <div className="flex flex-col gap-2">
           <div className="flex items-center gap-1.5 text-sm text-muted-foreground">
@@ -434,7 +377,7 @@ export function DiagonalCutMode({ image }: DiagonalCutModeProps) {
         </div>
       )}
 
-      {/* ── Reset ───────────────────────────────────────────────────────────── */}
+      {/* Reset */}
       <div className="flex items-center justify-end">
         <Button variant="ghost" size="sm" onClick={handleReset} className="gap-1.5 text-muted-foreground">
           <RotateCcw className="size-3.5" />
@@ -442,7 +385,7 @@ export function DiagonalCutMode({ image }: DiagonalCutModeProps) {
         </Button>
       </div>
 
-      {/* ── Canvas preview ──────────────────────────────────────────────────── */}
+      {/* Canvas preview */}
       <div
         ref={containerRef}
         className="relative flex w-full items-center justify-center overflow-hidden rounded-lg border border-border"
@@ -459,12 +402,12 @@ export function DiagonalCutMode({ image }: DiagonalCutModeProps) {
         />
       </div>
 
-      {/* ── Output info ─────────────────────────────────────────────────────── */}
+      {/* Output info */}
       <p className="text-xs text-muted-foreground font-mono">
-        Output: {image.width} x {image.height}px &nbsp;·&nbsp; PNG with transparency
+        Output: {image.width} x {image.height}px &nbsp;&middot;&nbsp; PNG with transparency
       </p>
 
-      {/* ── Action buttons ──────────────────────────────────────────────────── */}
+      {/* Action buttons */}
       <div className="flex items-center gap-3">
         <Button onClick={handleCopy} className="gap-2">
           <Copy className="size-4" />
@@ -476,7 +419,7 @@ export function DiagonalCutMode({ image }: DiagonalCutModeProps) {
         </Button>
       </div>
 
-      {/* ── Toast ───────────────────────────────────────────────────────────── */}
+      {/* Toast */}
       {copiedMessage && (
         <div
           className="fixed bottom-6 left-1/2 -translate-x-1/2 flex items-center gap-2 rounded-lg bg-primary px-4 py-2.5 text-sm font-medium text-primary-foreground shadow-lg animate-in fade-in slide-in-from-bottom-4 duration-300"
