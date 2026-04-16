@@ -3,11 +3,12 @@
 import { useState, useCallback, useEffect } from "react"
 import { CropMode } from "@/components/crop-mode"
 import { BorderMode } from "@/components/border-mode"
+import { DiagonalCutMode } from "@/components/diagonal-cut-mode"
 import { DropZone } from "@/components/drop-zone"
 import { JsonLd } from "@/components/json-ld"
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs"
 import { Button } from "@/components/ui/button"
-import { Crop, Frame, Github, Globe, RotateCcw } from "lucide-react"
+import { Crop, Frame, Scissors, Github, Globe, RotateCcw } from "lucide-react"
 
 export default function Page() {
   const [image, setImage] = useState<HTMLImageElement | null>(null)
@@ -98,6 +99,10 @@ export default function Page() {
                 <Frame className="size-4" />
                 Border Mode
               </TabsTrigger>
+              <TabsTrigger value="diagonal" className="gap-1.5 px-4">
+                <Scissors className="size-4" />
+                Diagonal Cut
+              </TabsTrigger>
             </TabsList>
 
             {image && (
@@ -120,6 +125,9 @@ export default function Page() {
 
               <TabsContent value="border">
                 <BorderMode image={image} />
+              </TabsContent>
+              <TabsContent value="diagonal">
+                <DiagonalCutMode image={image} />
               </TabsContent>
             </>
           )}
