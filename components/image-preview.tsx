@@ -1,17 +1,43 @@
 "use client"
 
 import { useEffect, useRef, useCallback, useState } from "react"
+import type { PointerEvent as ReactPointerEvent } from "react"
 import { getCropDimensions } from "@/lib/ratio-utils"
+
+type CropRect = { x: number; y: number; width: number; height: number }
+type DragMode = "move" | "resize"
+type ResizeHandle = "nw" | "ne" | "sw" | "se"
 
 interface ImagePreviewProps {
   image: HTMLImageElement
   hoveredRatio: { w: number; h: number } | null
+  cropRect?: CropRect | null
+  onCropRectChange?: (crop: CropRect) => void
 }
 
-export function ImagePreview({ image, hoveredRatio }: ImagePreviewProps) {
+const MIN_CROP_SIZE = 24
+
+function clamp(value: number, min: number, max: number) {
+  return Math.min(Math.max(value, min), max)
+}
+
+export function ImagePreview({
+  image,
+  hoveredRatio,
+  cropRect,
+  onCropRectChange,
+}: ImagePreviewProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const containerRef = useRef<HTMLDivElement>(null)
   const [canvasSize, setCanvasSize] = useState({ width: 0, height: 0 })
+  const interactionRef = useRef<{
+    mode: DragMode
+    handle?: ResizeHandle
+    pointerX: number
+    pointerY: number
+    crop: CropRect
+    captureTarget: Element
+  } | null>(null)
 
   const calculateCanvasSize = useCallback(() => {
     const container = containerRef.current
@@ -55,76 +81,180 @@ export function ImagePreview({ image, hoveredRatio }: ImagePreviewProps) {
     canvas.height = canvasSize.height
 
     ctx.drawImage(image, 0, 0, canvasSize.width, canvasSize.height)
+  }, [image, canvasSize])
 
-    if (hoveredRatio) {
-      const crop = getCropDimensions(
-        canvasSize.width,
-        canvasSize.height,
-        hoveredRatio.w,
-        hoveredRatio.h
-      )
+  const scaleX = canvasSize.width / image.width
+  const scaleY = canvasSize.height / image.height
+  const displayCrop = cropRect
+    ? {
+        x: cropRect.x * scaleX,
+        y: cropRect.y * scaleY,
+        width: cropRect.width * scaleX,
+        height: cropRect.height * scaleY,
+      }
+    : hoveredRatio
+      ? getCropDimensions(canvasSize.width, canvasSize.height, hoveredRatio.w, hoveredRatio.h)
+      : null
 
-      // Draw dark overlay on excluded areas
-      ctx.fillStyle = "rgba(0, 0, 0, 0.6)"
-      // Top
-      ctx.fillRect(0, 0, canvasSize.width, crop.y)
-      // Bottom
-      ctx.fillRect(
-        0,
-        crop.y + crop.height,
-        canvasSize.width,
-        canvasSize.height - crop.y - crop.height
-      )
-      // Left
-      ctx.fillRect(0, crop.y, crop.x, crop.height)
-      // Right
-      ctx.fillRect(
-        crop.x + crop.width,
-        crop.y,
-        canvasSize.width - crop.x - crop.width,
-        crop.height
-      )
+  const commitCrop = useCallback((nextCrop: CropRect) => {
+    if (!onCropRectChange) return
+    onCropRectChange({
+      x: Math.round(nextCrop.x),
+      y: Math.round(nextCrop.y),
+      width: Math.round(nextCrop.width),
+      height: Math.round(nextCrop.height),
+    })
+  }, [onCropRectChange])
 
-      // Draw crop border
-      ctx.strokeStyle = "oklch(0.746 0.16 232.7)"
-      ctx.lineWidth = 2
-      ctx.setLineDash([6, 4])
-      ctx.strokeRect(crop.x, crop.y, crop.width, crop.height)
-      ctx.setLineDash([])
-
-      // Draw corner marks
-      const cornerLen = 12
-      ctx.strokeStyle = "oklch(0.746 0.16 232.7)"
-      ctx.lineWidth = 3
-      const corners = [
-        { x: crop.x, y: crop.y },
-        { x: crop.x + crop.width, y: crop.y },
-        { x: crop.x, y: crop.y + crop.height },
-        { x: crop.x + crop.width, y: crop.y + crop.height },
-      ]
-      corners.forEach(({ x, y }, i) => {
-        const dx = i % 2 === 0 ? 1 : -1
-        const dy = i < 2 ? 1 : -1
-        ctx.beginPath()
-        ctx.moveTo(x + dx * cornerLen, y)
-        ctx.lineTo(x, y)
-        ctx.lineTo(x, y + dy * cornerLen)
-        ctx.stroke()
-      })
+  const startInteraction = useCallback((
+    e: ReactPointerEvent,
+    mode: DragMode,
+    handle?: ResizeHandle
+  ) => {
+    if (!cropRect || !onCropRectChange) return
+    e.preventDefault()
+    e.stopPropagation()
+    e.currentTarget.setPointerCapture(e.pointerId)
+    interactionRef.current = {
+      mode,
+      handle,
+      pointerX: e.clientX,
+      pointerY: e.clientY,
+      crop: cropRect,
+      captureTarget: e.currentTarget,
     }
-  }, [image, canvasSize, hoveredRatio])
+  }, [cropRect, onCropRectChange])
+
+  const handlePointerMove = useCallback((e: ReactPointerEvent) => {
+    const interaction = interactionRef.current
+    if (!interaction || !hoveredRatio) return
+
+    const dx = (e.clientX - interaction.pointerX) / scaleX
+    const dy = (e.clientY - interaction.pointerY) / scaleY
+    const aspect = hoveredRatio.w / hoveredRatio.h
+    const start = interaction.crop
+
+    if (interaction.mode === "move") {
+      commitCrop({
+        ...start,
+        x: clamp(start.x + dx, 0, image.width - start.width),
+        y: clamp(start.y + dy, 0, image.height - start.height),
+      })
+      return
+    }
+
+    let anchorX = start.x
+    let anchorY = start.y
+    let proposedWidthFromX = start.width
+
+    if (interaction.handle === "nw" || interaction.handle === "sw") {
+      anchorX = start.x + start.width
+      proposedWidthFromX = anchorX - (start.x + dx)
+    } else {
+      proposedWidthFromX = start.width + dx
+    }
+
+    let proposedHeightFromY = start.height + dy
+    if (interaction.handle === "nw" || interaction.handle === "ne") {
+      anchorY = start.y + start.height
+      proposedHeightFromY = anchorY - (start.y + dy)
+    }
+
+    const proposedWidthFromY = proposedHeightFromY * aspect
+    const proposedWidth =
+      Math.abs(proposedWidthFromX - start.width) > Math.abs(proposedWidthFromY - start.width)
+        ? proposedWidthFromX
+        : proposedWidthFromY
+
+    const maxWidthFromAnchor =
+      interaction.handle === "nw" || interaction.handle === "sw" ? anchorX : image.width - anchorX
+    const maxHeightFromAnchor =
+      interaction.handle === "nw" || interaction.handle === "ne" ? anchorY : image.height - anchorY
+    const maxWidth = Math.min(maxWidthFromAnchor, maxHeightFromAnchor * aspect)
+    const width = clamp(proposedWidth, MIN_CROP_SIZE, maxWidth)
+    const height = width / aspect
+    const x = interaction.handle === "nw" || interaction.handle === "sw" ? anchorX - width : anchorX
+    const y = interaction.handle === "nw" || interaction.handle === "ne" ? anchorY - height : anchorY
+
+    commitCrop({ x, y, width, height })
+  }, [commitCrop, hoveredRatio, image, scaleX, scaleY])
+
+  const stopInteraction = useCallback((e: ReactPointerEvent) => {
+    const interaction = interactionRef.current
+    if (!interaction) return
+    interactionRef.current = null
+    if (interaction.captureTarget.hasPointerCapture(e.pointerId)) {
+      interaction.captureTarget.releasePointerCapture(e.pointerId)
+    }
+  }, [])
 
   return (
     <div ref={containerRef} className="relative flex items-center justify-center w-full">
-      <canvas
-        ref={canvasRef}
-        className="rounded-lg"
-        style={{
-          width: canvasSize.width || "auto",
-          height: canvasSize.height || "auto",
-        }}
-        aria-label={`Image preview: ${image.width}x${image.height} pixels`}
-      />
+      <div className="relative touch-none">
+        <canvas
+          ref={canvasRef}
+          className="rounded-lg"
+          style={{
+            width: canvasSize.width || "auto",
+            height: canvasSize.height || "auto",
+          }}
+          aria-label={`Image preview: ${image.width}x${image.height} pixels`}
+        />
+        {displayCrop && (
+          <div className="pointer-events-none absolute inset-0 overflow-hidden rounded-lg">
+            <div className="absolute inset-x-0 top-0 bg-black/60" style={{ height: displayCrop.y }} />
+            <div
+              className="absolute inset-x-0 bottom-0 bg-black/60"
+              style={{ height: canvasSize.height - displayCrop.y - displayCrop.height }}
+            />
+            <div
+              className="absolute left-0 bg-black/60"
+              style={{ top: displayCrop.y, width: displayCrop.x, height: displayCrop.height }}
+            />
+            <div
+              className="absolute right-0 bg-black/60"
+              style={{
+                top: displayCrop.y,
+                width: canvasSize.width - displayCrop.x - displayCrop.width,
+                height: displayCrop.height,
+              }}
+            />
+          </div>
+        )}
+        {displayCrop && (
+          <div
+            className="absolute border-2 border-dashed border-sky-300 shadow-[0_0_0_1px_rgba(0,0,0,0.35)]"
+            style={{
+              left: displayCrop.x,
+              top: displayCrop.y,
+              width: displayCrop.width,
+              height: displayCrop.height,
+              cursor: cropRect ? "move" : "default",
+            }}
+            onPointerDown={(e) => startInteraction(e, "move")}
+            onPointerMove={handlePointerMove}
+            onPointerUp={stopInteraction}
+            onPointerCancel={stopInteraction}
+          >
+            {cropRect && (["nw", "ne", "sw", "se"] as ResizeHandle[]).map((handle) => (
+              <button
+                key={handle}
+                type="button"
+                className="absolute size-4 rounded-full border-2 border-background bg-sky-300 shadow"
+                style={{
+                  left: handle.endsWith("w") ? -8 : undefined,
+                  right: handle.endsWith("e") ? -8 : undefined,
+                  top: handle.startsWith("n") ? -8 : undefined,
+                  bottom: handle.startsWith("s") ? -8 : undefined,
+                  cursor: `${handle}-resize`,
+                }}
+                aria-label={`Resize crop from ${handle} corner`}
+                onPointerDown={(e) => startInteraction(e, "resize", handle)}
+              />
+            ))}
+          </div>
+        )}
+      </div>
     </div>
   )
 }

@@ -2,15 +2,20 @@
 
 import { useCallback } from "react"
 import { Badge } from "@/components/ui/badge"
-import type { RatioMatch } from "@/lib/ratio-utils"
+import type { RatioMatch, StandardRatio } from "@/lib/ratio-utils"
 import { getCropDimensions } from "@/lib/ratio-utils"
 import { Check, Copy, Crop } from "lucide-react"
+
+type CropRect = { x: number; y: number; width: number; height: number }
 
 interface RatioCardProps {
   match: RatioMatch
   image: HTMLImageElement
   isExactMatch: boolean
+  isSelected: boolean
+  cropRect: CropRect | null
   onHover: (ratio: { w: number; h: number } | null) => void
+  onSelect: (ratio: StandardRatio) => void
   onCropped: () => void
 }
 
@@ -18,18 +23,20 @@ export function RatioCard({
   match,
   image,
   isExactMatch,
+  isSelected,
+  cropRect,
   onHover,
+  onSelect,
   onCropped,
 }: RatioCardProps) {
   const { ratio, percentDiff } = match
 
+  const getActiveCrop = useCallback(() => {
+    return cropRect ?? getCropDimensions(image.width, image.height, ratio.w, ratio.h)
+  }, [cropRect, image, ratio])
+
   const handleCropAndCopy = useCallback(async () => {
-    const crop = getCropDimensions(
-      image.width,
-      image.height,
-      ratio.w,
-      ratio.h
-    )
+    const crop = getActiveCrop()
 
     const canvas = document.createElement("canvas")
     canvas.width = crop.width
@@ -67,15 +74,10 @@ export function RatioCard({
       link.click()
       onCropped()
     }
-  }, [image, ratio, onCropped])
+  }, [getActiveCrop, image, ratio, onCropped])
 
   const handleDownload = useCallback(() => {
-    const crop = getCropDimensions(
-      image.width,
-      image.height,
-      ratio.w,
-      ratio.h
-    )
+    const crop = getActiveCrop()
 
     const canvas = document.createElement("canvas")
     canvas.width = crop.width
@@ -99,12 +101,14 @@ export function RatioCard({
     link.download = `cropped-${ratio.name.replace(":", "x")}.png`
     link.href = canvas.toDataURL("image/png")
     link.click()
-  }, [image, ratio])
+  }, [getActiveCrop, image, ratio])
 
   return (
     <div
       className={`group relative flex flex-col gap-2 rounded-lg border p-4 transition-all cursor-pointer ${
-        isExactMatch
+        isSelected
+          ? "border-primary bg-primary/10 ring-2 ring-primary/20"
+          : isExactMatch
           ? "border-primary/50 bg-primary/5"
           : "border-border hover:border-muted-foreground/40 hover:bg-secondary/50"
       }`}
@@ -114,12 +118,13 @@ export function RatioCard({
       onBlur={() => onHover(null)}
       tabIndex={0}
       role="button"
-      aria-label={`${ratio.name} ratio - ${ratio.category}. ${isExactMatch ? "Exact match." : `${(percentDiff * 100).toFixed(1)}% difference.`} Click to crop and copy.`}
-      onClick={handleCropAndCopy}
+      aria-pressed={isSelected}
+      aria-label={`${ratio.name} ratio - ${ratio.category}. ${isExactMatch ? "Exact match." : `${(percentDiff * 100).toFixed(1)}% difference.`} Click to select crop size.`}
+      onClick={() => onSelect(ratio)}
       onKeyDown={(e) => {
         if (e.key === "Enter" || e.key === " ") {
           e.preventDefault()
-          handleCropAndCopy()
+          onSelect(ratio)
         }
       }}
     >
