@@ -50,6 +50,14 @@ const BORDER_RATIOS = [
   { label: "21:9", value: "21:9" },
 ]
 
+function normalizeHexInput(value: string) {
+  return value.trim().replace(/^#/, "").replace(/[^0-9a-fA-F]/g, "").slice(0, 6)
+}
+
+function expandShortHex(value: string) {
+  return value.length === 3 ? value.split("").map((char) => char + char).join("") : value
+}
+
 interface BorderModeProps {
   image: HTMLImageElement | null
 }
@@ -62,6 +70,7 @@ export function BorderMode({ image }: BorderModeProps) {
   const [copiedMessage, setCopiedMessage] = useState(false)
   const [isCustom, setIsCustom] = useState(false)
   const [customColor, setCustomColor] = useState("#ffffff")
+  const [customColorInput, setCustomColorInput] = useState("ffffff")
   const [debouncedColor, setDebouncedColor] = useState("#ffffff")
   const [eyedropperSupported] = useState(() => typeof window !== "undefined" && !!window.EyeDropper)
 
@@ -242,6 +251,7 @@ export function BorderMode({ image }: BorderModeProps) {
       const dropper = new window.EyeDropper()
       const result = await dropper.open()
       setCustomColor(result.sRGBHex)
+      setCustomColorInput(result.sRGBHex.slice(1))
       setBorderStyle("color")
     } catch {
       // User cancelled the eyedropper
@@ -379,7 +389,10 @@ export function BorderMode({ image }: BorderModeProps) {
                 <input
                   type="color"
                   value={customColor}
-                  onChange={(e) => setCustomColor(e.target.value)}
+                  onChange={(e) => {
+                    setCustomColor(e.target.value)
+                    setCustomColorInput(e.target.value.slice(1))
+                  }}
                   className="absolute inset-0 size-full cursor-pointer opacity-0"
                   aria-label="Pick border color"
                 />
@@ -393,13 +406,25 @@ export function BorderMode({ image }: BorderModeProps) {
               {/* Hex text input */}
               <Input
                 type="text"
-                value={customColor}
+                value={customColorInput}
                 onChange={(e) => {
-                  const val = e.target.value
-                  if (/^#[0-9a-fA-F]{0,6}$/.test(val)) setCustomColor(val)
+                  const normalized = normalizeHexInput(e.target.value)
+                  setCustomColorInput(normalized)
+                  if (/^[0-9a-fA-F]{6}$/.test(normalized)) {
+                    setCustomColor(`#${normalized.toLowerCase()}`)
+                  }
                 }}
-                maxLength={7}
+                onPaste={(e) => {
+                  e.preventDefault()
+                  const normalized = expandShortHex(normalizeHexInput(e.clipboardData.getData("text")))
+                  setCustomColorInput(normalized)
+                  if (/^[0-9a-fA-F]{6}$/.test(normalized)) {
+                    setCustomColor(`#${normalized.toLowerCase()}`)
+                  }
+                }}
+                onBlur={() => setCustomColorInput(customColor.slice(1))}
                 className="w-28 font-mono text-sm uppercase"
+                placeholder="FFFFFF"
                 aria-label="Border color hex value"
               />
 
