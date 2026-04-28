@@ -151,7 +151,7 @@ export default function Page() {
               </a>
               <span className="text-border" aria-hidden="true">{'|'}</span>
               <a
-                href="https://github.com/miguelcorderocollar"
+                href="https://github.com/miguelcorderocollar/image-ratio-tool"
                 target="_blank"
                 rel="noopener noreferrer"
                 className="flex items-center gap-1.5 transition-colors hover:text-foreground"
