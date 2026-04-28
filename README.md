@@ -1,35 +1,74 @@
-# image-ratio-tool
+# Image Ratio Tool
 
-This is a [Next.js](https://nextjs.org) project bootstrapped with [v0](https://v0.app).
+Browser-based image aspect ratio utility for analyzing dimensions, cropping to common formats, adding borders, and creating diagonal cuts.
 
-## Built with v0
+Live app: [image-ratio-tool.vercel.app](https://image-ratio-tool.vercel.app)
 
-This repository is linked to a [v0](https://v0.app) project. You can continue developing by visiting the link below -- start new chats to make changes, and v0 will push commits directly to this repo. Every merge to `main` will automatically deploy.
+## What It Does
 
-[Continue working on v0 →](https://v0.app/chat/projects/prj_lY9o8yWdVtiLQBaDRwsdnTs35fTl)
+- Detects the exact ratio of any uploaded, pasted, or dropped image
+- Suggests standard target ratios such as `1:1`, `4:3`, `3:2`, `16:9`, and `9:16`
+- Crops images to a selected ratio with preview and export
+- Adds borders to fit a target canvas ratio
+- Supports border fills including solid color, average edge color, blur, and gradient
+- Applies configurable diagonal cuts to any side of the image
+- Copies generated output directly to the clipboard or downloads it as a PNG
 
-## Getting Started
+## Privacy
 
-First, run the development server:
+Image processing happens in the browser. Images are not uploaded to an application server.
+
+## Stack
+
+- Next.js 16
+- React 19
+- TypeScript
+- Tailwind CSS 4
+- Radix UI primitives
+- Vercel Analytics
+
+## Local Development
+
+Requirements:
+
+- Node.js 20+
+- pnpm
+
+Install dependencies and start the dev server:
 
 ```bash
-npm run dev
-# or
-yarn dev
-# or
+pnpm install
 pnpm dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Open [http://localhost:3000](http://localhost:3000).
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## Available Scripts
 
-## Learn More
+```bash
+pnpm dev
+pnpm build
+pnpm start
+pnpm lint
+```
 
-To learn more, take a look at the following resources:
+## Deployment
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
-- [v0 Documentation](https://v0.app/docs) - learn about v0 and how to use it.
+The production deployment is hosted on Vercel at [image-ratio-tool.vercel.app](https://image-ratio-tool.vercel.app).
 
-<a href="https://v0.app/chat/api/kiro/clone/miguelcorderocollar/image-ratio-tool" alt="Open in Kiro"><img src="https://pdgvvgmkdvyeydso.public.blob.vercel-storage.com/open%20in%20kiro.svg?sanitize=true" /></a>
+To deploy your own copy:
+
+1. Create a Vercel project from this repository.
+2. Set `NEXT_PUBLIC_SITE_URL` to your production URL.
+3. Deploy the default branch.
+
+## Repository Notes
+
+- Main application entry: `app/page.tsx`
+- SEO metadata: `app/layout.tsx`
+- Structured data: `components/json-ld.tsx`
+- Ratio and canvas helpers: `lib/ratio-utils.ts`
+
+## License
+
+[MIT](./LICENSE)
