@@ -10,7 +10,8 @@ Live app: [image-ratio-tool.vercel.app](https://image-ratio-tool.vercel.app)
 - Suggests nearby standard aspect ratios such as `1:1`, `4:3`, `3:2`, `16:9`, and `9:16`
 - Lets you preview, move, and resize a crop box before copying or downloading the cropped PNG
 - Expands the canvas to a target ratio without resizing the original image
-- Supports border fills including black, white, custom color, sampled edge color, blur, and gradient
+- Supports border fills including black, white, custom color, sampled edge color, blur, and configurable two-color gradients
+- Adds share-style decorative padding with rounded image corners, Raycast-inspired gradient presets, configurable gradients, or an uploaded background image
 - Lets you configure diagonal cuts on any combination of sides with per-side angle controls
 - Exports diagonal cuts as transparent PNGs
 - Copies generated output directly to the clipboard or downloads it as a PNG
@@ -23,7 +24,11 @@ Analyze the image's current aspect ratio, compare it against common presets, the
 
 ### Border Mode
 
-Keep the original image intact and add space around it until it fits a target ratio. Borders can use solid fills, a picked color, an average edge color, a blur treatment, or a gradient.
+Keep the original image intact and add space around it until it fits a target ratio. Borders can use solid fills, a picked color, an average edge color, a blur treatment, or a two-color gradient with an adjustable angle.
+
+### Padding Mode
+
+Add a decorative background around the image for sharing. It defaults to automatic sizing with equal padding on every side, and can optionally use a custom ratio, extra padding, rounded corners, Raycast-inspired gradient presets, configurable gradients, or an uploaded background image.
 
 ### Diagonal Cut
 
