@@ -9,7 +9,7 @@ import { DropZone } from "@/components/drop-zone"
 import { JsonLd } from "@/components/json-ld"
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs"
 import { Button } from "@/components/ui/button"
-import { Crop, Frame, Scissors, Github, Globe, RotateCcw, Scaling } from "lucide-react"
+import { Crop, Frame, ImageIcon, Scissors, Github, Globe, RotateCcw, Scaling } from "lucide-react"
 
 const toolDescriptions = {
   crop: {
@@ -29,6 +29,12 @@ const toolDescriptions = {
     description: "Scale an image with quick presets or exact pixel dimensions, with optional aspect-ratio locking and PNG or JPEG export.",
     eyebrow: "Pixel resizing",
     icon: Scaling,
+  },
+  padding: {
+    title: "Padding Mode",
+    description: "Add a decorative padded background around the image, with optional rounded corners, presets, or an uploaded background.",
+    eyebrow: "Decorative share frame",
+    icon: ImageIcon,
   },
   diagonal: {
     title: "Diagonal Cut",
@@ -134,6 +140,10 @@ export default function Page() {
                 <Scaling className="size-4" />
                 Resize
               </TabsTrigger>
+              <TabsTrigger value="padding" className="gap-1.5 px-4">
+                <ImageIcon className="size-4" />
+                Padding Mode
+              </TabsTrigger>
               <TabsTrigger value="diagonal" className="gap-1.5 px-4">
                 <Scissors className="size-4" />
                 Diagonal Cut
@@ -186,6 +196,9 @@ export default function Page() {
               </TabsContent>
               <TabsContent value="resize">
                 <ResizeMode image={image} />
+              </TabsContent>
+              <TabsContent value="padding">
+                <BorderMode image={image} variant="padding" />
               </TabsContent>
               <TabsContent value="diagonal">
                 <DiagonalCutMode image={image} />
