@@ -4,11 +4,12 @@ import { useState, useCallback, useEffect } from "react"
 import { CropMode } from "@/components/crop-mode"
 import { BorderMode } from "@/components/border-mode"
 import { DiagonalCutMode } from "@/components/diagonal-cut-mode"
+import { ResizeMode } from "@/components/resize-mode"
 import { DropZone } from "@/components/drop-zone"
 import { JsonLd } from "@/components/json-ld"
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs"
 import { Button } from "@/components/ui/button"
-import { Crop, Frame, Scissors, Github, Globe, RotateCcw } from "lucide-react"
+import { Crop, Frame, Scissors, Github, Globe, RotateCcw, Scaling } from "lucide-react"
 
 const toolDescriptions = {
   crop: {
@@ -22,6 +23,12 @@ const toolDescriptions = {
     description: "Expand the canvas to a target ratio without cropping, then fill the added space with solid, sampled, blurred, or gradient borders.",
     eyebrow: "Canvas expansion",
     icon: Frame,
+  },
+  resize: {
+    title: "Resize",
+    description: "Scale an image with quick presets or exact pixel dimensions, with optional aspect-ratio locking and PNG or JPEG export.",
+    eyebrow: "Pixel resizing",
+    icon: Scaling,
   },
   diagonal: {
     title: "Diagonal Cut",
@@ -113,8 +120,8 @@ export default function Page() {
         {/* Mode Tabs - always visible at the top */}
         <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as keyof typeof toolDescriptions)} className="flex flex-col gap-6">
           {/* Tab bar + optional reset */}
-          <div className="flex items-center justify-between">
-            <TabsList className="w-fit">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <TabsList className="h-auto flex-wrap justify-start">
               <TabsTrigger value="crop" className="gap-1.5 px-4">
                 <Crop className="size-4" />
                 Crop Mode
@@ -122,6 +129,10 @@ export default function Page() {
               <TabsTrigger value="border" className="gap-1.5 px-4">
                 <Frame className="size-4" />
                 Border Mode
+              </TabsTrigger>
+              <TabsTrigger value="resize" className="gap-1.5 px-4">
+                <Scaling className="size-4" />
+                Resize
               </TabsTrigger>
               <TabsTrigger value="diagonal" className="gap-1.5 px-4">
                 <Scissors className="size-4" />
@@ -172,6 +183,9 @@ export default function Page() {
 
               <TabsContent value="border">
                 <BorderMode image={image} />
+              </TabsContent>
+              <TabsContent value="resize">
+                <ResizeMode image={image} />
               </TabsContent>
               <TabsContent value="diagonal">
                 <DiagonalCutMode image={image} />
