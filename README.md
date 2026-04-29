@@ -1,18 +1,33 @@
 # Image Ratio Tool
 
-Browser-based image aspect ratio utility for analyzing dimensions, cropping to common formats, adding borders, and creating diagonal cuts.
+Browser-based image utility for analyzing aspect ratios, exporting crops, expanding images to new canvas ratios, and creating diagonal transparent cutouts.
 
 Live app: [image-ratio-tool.vercel.app](https://image-ratio-tool.vercel.app)
 
 ## What It Does
 
 - Detects the exact ratio of any uploaded, pasted, or dropped image
-- Suggests standard target ratios such as `1:1`, `4:3`, `3:2`, `16:9`, and `9:16`
-- Crops images to a selected ratio with preview and export
-- Adds borders to fit a target canvas ratio
-- Supports border fills including solid color, average edge color, blur, and gradient
-- Applies configurable diagonal cuts to any side of the image
+- Suggests nearby standard aspect ratios such as `1:1`, `4:3`, `3:2`, `16:9`, and `9:16`
+- Lets you preview, move, and resize a crop box before copying or downloading the cropped PNG
+- Expands the canvas to a target ratio without resizing the original image
+- Supports border fills including black, white, custom color, sampled edge color, blur, and gradient
+- Lets you configure diagonal cuts on any combination of sides with per-side angle controls
+- Exports diagonal cuts as transparent PNGs
 - Copies generated output directly to the clipboard or downloads it as a PNG
+
+## Modes
+
+### Crop Mode
+
+Analyze the image's current aspect ratio, compare it against common presets, then fine-tune the crop area before exporting.
+
+### Border Mode
+
+Keep the original image intact and add space around it until it fits a target ratio. Borders can use solid fills, a picked color, an average edge color, a blur treatment, or a gradient.
+
+### Diagonal Cut
+
+Create transparent cutouts by slicing one or more edges at adjustable angles, then export the result as a PNG.
 
 ## Privacy
 

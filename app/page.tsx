@@ -10,8 +10,32 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs"
 import { Button } from "@/components/ui/button"
 import { Crop, Frame, Scissors, Github, Globe, RotateCcw } from "lucide-react"
 
+const toolDescriptions = {
+  crop: {
+    title: "Crop Mode",
+    description: "Analyze the current ratio, preview common formats, adjust the crop box, and export a centered crop.",
+    eyebrow: "Ratio analysis and crop",
+    icon: Crop,
+  },
+  border: {
+    title: "Border Mode",
+    description: "Expand the canvas to a target ratio without cropping, then fill the added space with solid, sampled, blurred, or gradient borders.",
+    eyebrow: "Canvas expansion",
+    icon: Frame,
+  },
+  diagonal: {
+    title: "Diagonal Cut",
+    description: "Cut one or more sides at adjustable angles and export the result as a transparent PNG.",
+    eyebrow: "Transparent cutout export",
+    icon: Scissors,
+  },
+} as const
+
 export default function Page() {
   const [image, setImage] = useState<HTMLImageElement | null>(null)
+  const [activeTab, setActiveTab] = useState<keyof typeof toolDescriptions>("crop")
+  const activeTool = toolDescriptions[activeTab]
+  const ActiveToolIcon = activeTool.icon
 
   const handleImageLoad = useCallback((img: HTMLImageElement) => {
     setImage(img)
@@ -87,7 +111,7 @@ export default function Page() {
         </header>
 
         {/* Mode Tabs - always visible at the top */}
-        <Tabs defaultValue="crop" className="flex flex-col gap-6">
+        <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as keyof typeof toolDescriptions)} className="flex flex-col gap-6">
           {/* Tab bar + optional reset */}
           <div className="flex items-center justify-between">
             <TabsList className="w-fit">
@@ -113,8 +137,31 @@ export default function Page() {
             )}
           </div>
 
-          {/* DropZone shown below the tabs when no image is loaded */}
-          {!image && <DropZone onImageLoad={handleImageLoad} />}
+          {/* Empty state */}
+          {!image && (
+            <>
+              <div className="relative overflow-hidden rounded-xl border border-border/80 bg-card/60 px-4 py-3 shadow-sm">
+                <div className="absolute inset-y-0 left-0 w-1 bg-primary/80" />
+                <div className="flex items-start gap-3 pl-2">
+                  <div className="mt-0.5 rounded-lg border border-primary/20 bg-primary/10 p-2 text-primary">
+                    <ActiveToolIcon className="size-4" />
+                  </div>
+                  <div className="min-w-0">
+                    <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-primary/80">
+                      {activeTool.eyebrow}
+                    </p>
+                    <p className="mt-1 text-sm font-medium text-foreground">
+                      {activeTool.title}
+                    </p>
+                    <p className="mt-1 text-sm leading-6 text-muted-foreground">
+                      {activeTool.description}
+                    </p>
+                  </div>
+                </div>
+              </div>
+              <DropZone onImageLoad={handleImageLoad} />
+            </>
+          )}
 
           {/* Content panels rendered only when image exists */}
           {image && (
