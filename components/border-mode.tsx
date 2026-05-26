@@ -589,6 +589,48 @@ export function BorderMode({ image, variant = "fill" }: BorderModeProps) {
     return canvas
   }, [image, drawCanvas])
 
+  const generateBackgroundCanvas = useCallback((): HTMLCanvasElement | null => {
+    if (!image) return null
+
+    const canvas = document.createElement("canvas")
+    const layout = variant === "fill"
+      ? getFillBorderLayout(image.width, image.height, targetW, targetH)
+      : useCustomPaddingRatio
+        ? getPresentationBorderDimensions(image.width, image.height, targetW, targetH, paddingPercent)
+        : getUniformPaddingDimensions(image.width, image.height, paddingPercent)
+    const ctx = canvas.getContext("2d")
+    if (!ctx) return null
+
+    canvas.width = layout.canvasWidth
+    canvas.height = layout.canvasHeight
+    ctx.clearRect(0, 0, layout.canvasWidth, layout.canvasHeight)
+
+    if (borderStyle === "gradient") {
+      ctx.fillStyle = createAngleGradient(
+        ctx,
+        layout.canvasWidth,
+        layout.canvasHeight,
+        gradientAngle,
+        debouncedGradientStart,
+        debouncedGradientEnd
+      )
+      ctx.fillRect(0, 0, layout.canvasWidth, layout.canvasHeight)
+    }
+
+    return canvas
+  }, [
+    image,
+    variant,
+    useCustomPaddingRatio,
+    targetW,
+    targetH,
+    paddingPercent,
+    borderStyle,
+    debouncedGradientStart,
+    debouncedGradientEnd,
+    gradientAngle,
+  ])
+
   const saveRecentColor = useCallback((color: string) => {
     const normalized = normalizeHexColor(color)
     if (!normalized || typeof window === "undefined") return
@@ -640,6 +682,17 @@ export function BorderMode({ image, variant = "fill" }: BorderModeProps) {
     link.href = canvas.toDataURL("image/png")
     link.click()
   }, [generateOutputCanvas, saveCurrentStyleToRecents, targetW, targetH])
+
+  const handleDownloadBackground = useCallback(() => {
+    const canvas = generateBackgroundCanvas()
+    if (!canvas) return
+    saveCurrentStyleToRecents()
+
+    const link = document.createElement("a")
+    link.download = `bordered-background-${targetW}x${targetH}.png`
+    link.href = canvas.toDataURL("image/png")
+    link.click()
+  }, [generateBackgroundCanvas, saveCurrentStyleToRecents, targetW, targetH])
 
   const handleCopyToClipboard = useCallback(async () => {
     const canvas = generateOutputCanvas()
@@ -1245,6 +1298,12 @@ export function BorderMode({ image, variant = "fill" }: BorderModeProps) {
           <Download className="size-4" />
           Download PNG
         </Button>
+        {variant === "padding" && borderStyle === "gradient" && (
+          <Button variant="secondary" onClick={handleDownloadBackground} className="gap-2">
+            <Download className="size-4" />
+            Download BG PNG
+          </Button>
+        )}
       </div>
 
       {copiedMessage && (
