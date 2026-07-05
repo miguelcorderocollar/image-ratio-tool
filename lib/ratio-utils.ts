@@ -6,6 +6,11 @@ export interface StandardRatio {
   category: string
 }
 
+export interface RatioOption {
+  label: string
+  value: string
+}
+
 export interface RatioMatch {
   ratio: StandardRatio
   difference: number
@@ -25,6 +30,19 @@ export const STANDARD_RATIOS: StandardRatio[] = [
   { name: "2:3", w: 2, h: 3, decimal: 2 / 3, category: "Portrait" },
   { name: "4:5", w: 4, h: 5, decimal: 4 / 5, category: "Social" },
   { name: "1:2", w: 1, h: 2, decimal: 1 / 2, category: "Tall" },
+]
+
+export const RATIO_OPTIONS: RatioOption[] = [
+  { label: "1:1", value: "1:1" },
+  { label: "4:3", value: "4:3" },
+  { label: "3:2", value: "3:2" },
+  { label: "16:9", value: "16:9" },
+  { label: "9:16", value: "9:16" },
+  { label: "2:1", value: "2:1" },
+  { label: "5:4", value: "5:4" },
+  { label: "3:4", value: "3:4" },
+  { label: "4:5", value: "4:5" },
+  { label: "21:9", value: "21:9" },
 ]
 
 export function gcd(a: number, b: number): number {
@@ -99,6 +117,32 @@ export function getCropDimensions(
   const y = (srcHeight - cropHeight) / 2
 
   return { x, y, width: cropWidth, height: cropHeight }
+}
+
+export function renderCroppedCanvas(
+  image: HTMLImageElement,
+  crop: { x: number; y: number; width: number; height: number }
+): HTMLCanvasElement | null {
+  const canvas = document.createElement("canvas")
+  canvas.width = Math.round(crop.width)
+  canvas.height = Math.round(crop.height)
+
+  const ctx = canvas.getContext("2d")
+  if (!ctx) return null
+
+  ctx.drawImage(
+    image,
+    crop.x,
+    crop.y,
+    crop.width,
+    crop.height,
+    0,
+    0,
+    canvas.width,
+    canvas.height
+  )
+
+  return canvas
 }
 
 /**

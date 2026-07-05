@@ -1,117 +1,37 @@
 "use client"
 
-import { useCallback } from "react"
 import { Badge } from "@/components/ui/badge"
+import { cn } from "@/lib/utils"
 import type { RatioMatch, StandardRatio } from "@/lib/ratio-utils"
-import { getCropDimensions } from "@/lib/ratio-utils"
-import { Check, Copy, Crop } from "lucide-react"
-
-type CropRect = { x: number; y: number; width: number; height: number }
+import { Check } from "lucide-react"
 
 interface RatioCardProps {
   match: RatioMatch
-  image: HTMLImageElement
   isExactMatch: boolean
   isSelected: boolean
-  cropRect: CropRect | null
   onHover: (ratio: { w: number; h: number } | null) => void
   onSelect: (ratio: StandardRatio) => void
-  onCropped: () => void
 }
 
 export function RatioCard({
   match,
-  image,
   isExactMatch,
   isSelected,
-  cropRect,
   onHover,
   onSelect,
-  onCropped,
 }: RatioCardProps) {
   const { ratio, percentDiff } = match
 
-  const getActiveCrop = useCallback(() => {
-    return cropRect ?? getCropDimensions(image.width, image.height, ratio.w, ratio.h)
-  }, [cropRect, image, ratio])
-
-  const handleCropAndCopy = useCallback(async () => {
-    const crop = getActiveCrop()
-
-    const canvas = document.createElement("canvas")
-    canvas.width = crop.width
-    canvas.height = crop.height
-    const ctx = canvas.getContext("2d")
-    if (!ctx) return
-
-    ctx.drawImage(
-      image,
-      crop.x,
-      crop.y,
-      crop.width,
-      crop.height,
-      0,
-      0,
-      crop.width,
-      crop.height
-    )
-
-    try {
-      const blob = await new Promise<Blob | null>((resolve) =>
-        canvas.toBlob(resolve, "image/png")
-      )
-      if (blob) {
-        await navigator.clipboard.write([
-          new ClipboardItem({ "image/png": blob }),
-        ])
-        onCropped()
-      }
-    } catch {
-      // Fallback: download instead
-      const link = document.createElement("a")
-      link.download = `cropped-${ratio.name.replace(":", "x")}.png`
-      link.href = canvas.toDataURL("image/png")
-      link.click()
-      onCropped()
-    }
-  }, [getActiveCrop, image, ratio, onCropped])
-
-  const handleDownload = useCallback(() => {
-    const crop = getActiveCrop()
-
-    const canvas = document.createElement("canvas")
-    canvas.width = crop.width
-    canvas.height = crop.height
-    const ctx = canvas.getContext("2d")
-    if (!ctx) return
-
-    ctx.drawImage(
-      image,
-      crop.x,
-      crop.y,
-      crop.width,
-      crop.height,
-      0,
-      0,
-      crop.width,
-      crop.height
-    )
-
-    const link = document.createElement("a")
-    link.download = `cropped-${ratio.name.replace(":", "x")}.png`
-    link.href = canvas.toDataURL("image/png")
-    link.click()
-  }, [getActiveCrop, image, ratio])
-
   return (
     <div
-      className={`group relative flex flex-col gap-2 rounded-lg border p-4 transition-all cursor-pointer ${
+      className={cn(
+        "group relative flex cursor-pointer flex-col gap-1.5 rounded-lg border px-3 py-2.5 transition-all",
         isSelected
           ? "border-primary bg-primary/10 ring-2 ring-primary/20"
           : isExactMatch
-          ? "border-primary/50 bg-primary/5"
-          : "border-border hover:border-muted-foreground/40 hover:bg-secondary/50"
-      }`}
+            ? "border-primary/50 bg-primary/5"
+            : "border-border hover:border-muted-foreground/40 hover:bg-secondary/50"
+      )}
       onMouseEnter={() => onHover({ w: ratio.w, h: ratio.h })}
       onMouseLeave={() => onHover(null)}
       onFocus={() => onHover({ w: ratio.w, h: ratio.h })}
@@ -129,7 +49,7 @@ export function RatioCard({
       }}
     >
       <div className="flex items-center justify-between">
-        <span className="text-lg font-mono font-semibold text-foreground">
+        <span className="font-mono text-base font-semibold text-foreground">
           {ratio.name}
         </span>
         <Badge
@@ -154,32 +74,6 @@ export function RatioCard({
         <span className="text-muted-foreground font-mono text-xs">
           {ratio.decimal.toFixed(3)}
         </span>
-      </div>
-
-      <div className="flex items-center gap-1.5 mt-1 opacity-0 group-hover:opacity-100 group-focus:opacity-100 transition-opacity">
-        <button
-          onClick={(e) => {
-            e.stopPropagation()
-            handleCropAndCopy()
-          }}
-          className="flex items-center gap-1.5 text-xs text-primary hover:text-primary/80 transition-colors"
-          aria-label={`Copy ${ratio.name} cropped image to clipboard`}
-        >
-          <Copy className="size-3" />
-          Copy
-        </button>
-        <span className="text-border">|</span>
-        <button
-          onClick={(e) => {
-            e.stopPropagation()
-            handleDownload()
-          }}
-          className="flex items-center gap-1.5 text-xs text-primary hover:text-primary/80 transition-colors"
-          aria-label={`Download ${ratio.name} cropped image`}
-        >
-          <Crop className="size-3" />
-          Download
-        </button>
       </div>
     </div>
   )
