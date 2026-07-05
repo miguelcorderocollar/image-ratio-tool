@@ -23,9 +23,9 @@ export function RatioInfo({
   matchCount,
 }: RatioInfoProps) {
   return (
-    <div className="flex flex-col gap-4">
+    <div className="flex flex-col gap-3 rounded-lg border border-border p-4">
       {/* Exact ratio display */}
-      <div className="flex flex-wrap items-center gap-3">
+      <div className="flex flex-wrap items-center gap-2.5">
         <div className="flex items-center gap-2">
           <span className="text-sm text-muted-foreground">Exact Ratio</span>
           <span className="font-mono text-xl font-bold text-foreground">

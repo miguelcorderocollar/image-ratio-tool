@@ -10,6 +10,7 @@ import { Slider } from "@/components/ui/slider"
 import {
   Select,
   SelectContent,
+  SelectGroup,
   SelectItem,
   SelectTrigger,
   SelectValue,
@@ -18,6 +19,7 @@ import {
   getExactRatio,
   getBorderDimensions,
   getAverageEdgeColor,
+  RATIO_OPTIONS,
 } from "@/lib/ratio-utils"
 import {
   Copy,
@@ -84,19 +86,6 @@ declare global {
     EyeDropper?: new () => { open: () => Promise<{ sRGBHex: string }> }
   }
 }
-
-const BORDER_RATIOS = [
-  { label: "1:1", value: "1:1" },
-  { label: "4:3", value: "4:3" },
-  { label: "3:2", value: "3:2" },
-  { label: "16:9", value: "16:9" },
-  { label: "9:16", value: "9:16" },
-  { label: "2:1", value: "2:1" },
-  { label: "5:4", value: "5:4" },
-  { label: "3:4", value: "3:4" },
-  { label: "4:5", value: "4:5" },
-  { label: "21:9", value: "21:9" },
-]
 
 const BACKGROUND_PRESETS: Array<{ id: PresetId; label: string; swatch: string }> = [
   { id: "glaze", label: "Glaze", swatch: "radial-gradient(circle at 16% 12%,#ffffff 0,#ffe0ff 12%,transparent 30%),radial-gradient(circle at 72% 24%,#5efcff,transparent 34%),linear-gradient(135deg,#ff4fd8,#6f3cff 48%,#111827)" },
@@ -829,15 +818,17 @@ export function BorderMode({ image, variant = "fill" }: BorderModeProps) {
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  {variant === "padding" && (
-                    <SelectItem value="auto">Auto</SelectItem>
-                  )}
-                  {BORDER_RATIOS.map((r) => (
-                    <SelectItem key={r.value} value={r.value}>
-                      {r.label}
-                    </SelectItem>
-                  ))}
-                  <SelectItem value="custom">Custom</SelectItem>
+                  <SelectGroup>
+                    {variant === "padding" && (
+                      <SelectItem value="auto">Auto</SelectItem>
+                    )}
+                    {RATIO_OPTIONS.map((r) => (
+                      <SelectItem key={r.value} value={r.value}>
+                        {r.label}
+                      </SelectItem>
+                    ))}
+                    <SelectItem value="custom">Custom</SelectItem>
+                  </SelectGroup>
                 </SelectContent>
               </Select>
             </div>
